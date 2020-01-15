@@ -15,6 +15,7 @@ require (
 	github.com/prometheus/client_golang v0.9.3-0.20190127221311-3c4408c8b829
 	github.com/spf13/cobra v0.0.3
 	github.com/spf13/pflag v1.0.3
+	github.com/vmware/go-vmware-nsxt v0.0.0-20190201205556-16aa0443042d // master
 	github.com/vmware/govmomi v0.21.0
 	golang.org/x/lint v0.0.0-20190409202823-959b441ac422 // indirect
 	golang.org/x/net v0.0.0-20190724013045-ca1201d0de80
@@ -32,11 +33,14 @@ require (
 	k8s.io/component-base v0.0.0
 	k8s.io/klog v0.3.2
 	k8s.io/kube-openapi v0.0.0-20190401085232-94e1e7b7574c // indirect
+	k8s.io/kubelet v1.15.0
 	k8s.io/kubernetes v1.15.0
 	k8s.io/sample-controller v0.0.0-20190731144349-6f8905ae4ee5
 )
 
 replace (
+	github.com/vmware/go-vmware-nsxt => github.com/MartinWeindel/go-vmware-nsxt v0.0.0-20191129144634-29aa700ba036
+	gopkg.in/gcfg.v1 => github.com/mandelsoft/gcfg v1.2.4-0.20191118133708-71f203a139d3
 	// these replacements are pinned to e8462b5b5dc2 which is the sha associated with the 1.15.0 tag on k/k
 	// as you cannot pin them to v1.15.0 directly
 	k8s.io/api => k8s.io/kubernetes/staging/src/k8s.io/api v0.0.0-20190615005809-e8462b5b5dc2

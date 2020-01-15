@@ -20,6 +20,8 @@ import (
 	"io"
 	"runtime"
 
+	"k8s.io/cloud-provider-vsphere/pkg/cloudprovider/vsphere/loadbalancer"
+
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/klog"
 
@@ -89,11 +91,17 @@ func (vs *VSphere) Initialize(clientBuilder cloudprovider.ControllerClientBuilde
 	} else {
 		klog.Errorf("Kubernetes Client Init Failed: %v", err)
 	}
+	if vs.loadbalancer != nil {
+		vs.loadbalancer.Initialize(client, stop)
+	}
 }
 
 // LoadBalancer returns a balancer interface. Also returns true if the
 // interface is supported, false otherwise.
 func (vs *VSphere) LoadBalancer() (cloudprovider.LoadBalancer, bool) {
+	if vs.loadbalancer != nil {
+		return vs.loadbalancer, true
+	}
 	klog.Warning("The vSphere cloud provider does not support load balancers")
 	return nil, false
 }
@@ -145,13 +153,22 @@ func (vs *VSphere) HasClusterID() bool {
 // Initializes vSphere from vSphere CloudProvider Configuration
 func buildVSphereFromConfig(cfg *CPIConfig) (*VSphere, error) {
 	nm := newNodeManager(cfg, nil)
-
+	lb, err := loadbalancer.NewLBProvider(&cfg.LBConfig)
+	if err != nil {
+		return nil, err
+	}
+	if lb == nil {
+		klog.Infof("NSX-T load balancer support disabled")
+	} else {
+		klog.Infof("NSX-T load balancer support enabled")
+	}
 	vs := VSphere{
-		cfg:         cfg,
-		nodeManager: nm,
-		instances:   newInstances(nm),
-		zones:       newZones(nm, cfg.Labels.Zone, cfg.Labels.Region),
-		server:      server.NewServer(cfg.Global.APIBinding, nm),
+		cfg:          cfg,
+		nodeManager:  nm,
+		loadbalancer: lb,
+		instances:    newInstances(nm),
+		zones:        newZones(nm, cfg.Labels.Zone, cfg.Labels.Region),
+		server:       server.NewServer(cfg.Global.APIBinding, nm),
 	}
 	return &vs, nil
 }

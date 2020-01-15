@@ -19,9 +19,11 @@ package vsphere
 import (
 	"sync"
 
-	v1 "k8s.io/api/core/v1"
-	cloudprovider "k8s.io/cloud-provider"
+	"k8s.io/api/core/v1"
+	"k8s.io/cloud-provider"
 
+	clientset "k8s.io/client-go/kubernetes"
+	lbcfg "k8s.io/cloud-provider-vsphere/pkg/cloudprovider/vsphere/loadbalancer/config"
 	vcfg "k8s.io/cloud-provider-vsphere/pkg/common/config"
 	cm "k8s.io/cloud-provider-vsphere/pkg/common/connectionmanager"
 	k8s "k8s.io/cloud-provider-vsphere/pkg/common/kubernetes"
@@ -36,6 +38,7 @@ type GRPCServer interface {
 // CPIConfig is used to read and store information (related only to the CPI) from the cloud configuration file
 type CPIConfig struct {
 	vcfg.Config
+	lbcfg.LBConfig
 
 	Nodes struct {
 		// IP address on VirtualMachine's network interfaces included in the fields' CIDRs
@@ -51,12 +54,18 @@ type CPIConfig struct {
 	}
 }
 
+type LoadBalancer interface {
+	cloudprovider.LoadBalancer
+	Initialize(client clientset.Interface, stop <-chan struct{})
+}
+
 // VSphere is an implementation of cloud provider Interface for VSphere.
 type VSphere struct {
 	cfg               *CPIConfig
 	connectionManager *cm.ConnectionManager
 	nodeManager       *NodeManager
 	informMgr         *k8s.InformerManager
+	loadbalancer      LoadBalancer
 	instances         cloudprovider.Instances
 	zones             cloudprovider.Zones
 	server            GRPCServer

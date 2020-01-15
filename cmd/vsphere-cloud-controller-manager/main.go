@@ -22,6 +22,7 @@ package main
 import (
 	goflag "flag"
 	"fmt"
+	"k8s.io/cloud-provider-vsphere/pkg/cloudprovider/vsphere/loadbalancer"
 	"math/rand"
 	"os"
 	"time"
@@ -45,6 +46,9 @@ const AppName string = "vsphere-cloud-controller-manager"
 var version string
 
 func main() {
+	loadbalancer.Version = version
+	loadbalancer.AppName = AppName
+
 	rand.Seed(time.Now().UTC().UnixNano())
 
 	command := app.NewCloudControllerManagerCommand()
@@ -71,9 +75,13 @@ func main() {
 
 	//
 	var versionFlag *pflag.Value
+	var clusterNameFlag *pflag.Value
 	pflag.CommandLine.VisitAll(func(flag *pflag.Flag) {
-		if flag.Name == "version" {
-			versionFlag = &flag.Value
+		switch flag.Name {
+			case "cluster-name":
+				clusterNameFlag = &flag.Value
+			case "version":
+				versionFlag = &flag.Value
 		}
 	})
 
@@ -83,6 +91,9 @@ func main() {
 		if versionFlag != nil && (*versionFlag).String() != "false" {
 			fmt.Printf("%s %s\n", AppName, version)
 			os.Exit(0)
+		}
+		if clusterNameFlag != nil {
+			loadbalancer.ClusterName = (*clusterNameFlag).String()
 		}
 		innerRun(cmd, args)
 	}
