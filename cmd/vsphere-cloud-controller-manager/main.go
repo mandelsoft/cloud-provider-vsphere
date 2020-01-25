@@ -78,10 +78,10 @@ func main() {
 	var clusterNameFlag *pflag.Value
 	pflag.CommandLine.VisitAll(func(flag *pflag.Flag) {
 		switch flag.Name {
-			case "cluster-name":
-				clusterNameFlag = &flag.Value
-			case "version":
-				versionFlag = &flag.Value
+		case "cluster-name":
+			clusterNameFlag = &flag.Value
+		case "version":
+			versionFlag = &flag.Value
 		}
 	})
 

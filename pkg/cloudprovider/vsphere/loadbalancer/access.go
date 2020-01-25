@@ -48,22 +48,23 @@ type access struct {
 	broker       NsxtBroker
 	config       *config.LBConfig
 	ownerTag     common.Tag
-	standardTags []common.Tag
+	standardTags Tags
 }
 
 var _ Access = &access{}
 
 // NewAccess creates a new Access instance
 func NewAccess(broker NsxtBroker, config *config.LBConfig) (Access, error) {
-	ownerTag := common.Tag{Scope: ScopeOwner, Tag: AppName}
-	standardTags := []common.Tag{ownerTag}
+	standardTags := Tags{
+		ScopeOwner: common.Tag{Scope: ScopeOwner, Tag: AppName},
+	}
 	for k, v := range config.AdditionalTags {
-		standardTags = append(standardTags, common.Tag{Scope: k, Tag: v})
+		standardTags[k] = common.Tag{Scope: k, Tag: v}
 	}
 	return &access{
 		broker:       broker,
 		config:       config,
-		ownerTag:     ownerTag,
+		ownerTag:     standardTags[ScopeOwner],
 		standardTags: standardTags,
 	}, nil
 }
@@ -85,7 +86,7 @@ func (a *access) CreateLoadBalancerService(clusterName string) (*loadbalancer.Lb
 	lbService := loadbalancer.LbService{
 		Description: fmt.Sprintf("virtual server pool for cluster %s created by %s", clusterName, AppName),
 		DisplayName: fmt.Sprintf("cluster:%s", clusterName),
-		Tags:        append(a.standardTags, clusterTag(clusterName)),
+		Tags:        a.standardTags.Add(clusterTag(clusterName)).Normalize(),
 		Size:        a.config.LoadBalancer.Size,
 		Enabled:     true,
 		Attachment: &common.ResourceReference{
@@ -181,7 +182,7 @@ func (a *access) CreateVirtualServer(clusterName string, objectName ObjectName, 
 		Description: fmt.Sprintf("virtual server for cluster %s, service %s created by %s",
 			clusterName, objectName, AppName),
 		DisplayName:           fmt.Sprintf("cluster:%s:%s", clusterName, objectName),
-		Tags:                  append(append(a.standardTags, clusterTag(clusterName), serviceTag(objectName)), tags.Tags()...),
+		Tags:                  a.standardTags.Add(clusterTag(clusterName), serviceTag(objectName)).Add(tags.Tags()...).Normalize(),
 		DefaultPoolMemberPort: fmt.Sprintf("%d", mapping.NodePort),
 		Enabled:               true,
 		IpAddress:             ipAddress,
@@ -242,7 +243,7 @@ func (a *access) CreatePool(clusterName string, objectName ObjectName, mapping M
 	pool := loadbalancer.LbPool{
 		Description:      fmt.Sprintf("pool for cluster %s, service %s created by %s", clusterName, objectName, AppName),
 		DisplayName:      fmt.Sprintf("cluster:%s:%s", clusterName, objectName),
-		Tags:             append(a.standardTags, clusterTag(clusterName), serviceTag(objectName), portTag(mapping)),
+		Tags:             a.standardTags.Add(clusterTag(clusterName), serviceTag(objectName), portTag(mapping)).Normalize(),
 		SnatTranslation:  &loadbalancer.LbSnatTranslation{Type_: "LbSnatAutoMap"},
 		Members:          members,
 		ActiveMonitorIds: activeMonitorIds,
@@ -322,7 +323,7 @@ func (a *access) CreateTCPMonitor(clusterName string, objectName ObjectName, map
 		Description: fmt.Sprintf("tcp monitor for cluster %s, service %s, port %d created by %s",
 			clusterName, objectName, mapping.NodePort, AppName),
 		DisplayName: fmt.Sprintf("cluster:%s:%s:%d", clusterName, objectName, mapping.NodePort),
-		Tags:        append(a.standardTags, clusterTag(clusterName), serviceTag(objectName), portTag(mapping)),
+		Tags:        a.standardTags.Add(clusterTag(clusterName), serviceTag(objectName), portTag(mapping)).Normalize(),
 		MonitorPort: fmt.Sprintf("%d", mapping.NodePort),
 	})
 	if err != nil {
