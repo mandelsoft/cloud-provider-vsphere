@@ -39,7 +39,9 @@ const (
 )
 
 var (
+	// AppName is set by the main program to the name of the application
 	AppName string
+	// Version is set by the main program to the version of the application
 	Version string
 )
 
@@ -55,7 +57,8 @@ var ClusterName string
 
 var _ cloudprovider.LoadBalancer = &lbProvider{}
 
-func NewLBProvider(cfg *config.LBConfig) (*lbProvider, error) {
+// NewLBProvider creates a load balancer implementation for the given config
+func NewLBProvider(cfg *config.LBConfig) (LoadBalancer, error) {
 	if !cfg.IsEnabled() {
 		return nil, nil
 	}

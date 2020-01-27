@@ -51,13 +51,17 @@ func _checkNormTags(t *testing.T, msg string, tags []common.Tag, tag ...common.T
 	}
 }
 
+func newTag(scope, tag string) common.Tag {
+	return common.Tag{Scope: scope, Tag: tag}
+}
+
 func TestTagAdd(t *testing.T) {
 	tags := Tags{}
 
-	t1 := common.Tag{"t1", "v1"}
-	t1a := common.Tag{"t1", "v1a"}
-	t2 := common.Tag{"t2", "v2"}
-	t3 := common.Tag{"t3", "v3"}
+	t1 := newTag("t1", "v1")
+	t1a := newTag("t1", "v1a")
+	t2 := newTag("t2", "v2")
+	t3 := newTag("t3", "v3")
 
 	n := tags.Add(t1, t2)
 

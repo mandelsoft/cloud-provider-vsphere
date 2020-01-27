@@ -21,7 +21,17 @@ package loadbalancer
 import (
 	"github.com/vmware/go-vmware-nsxt/common"
 	"github.com/vmware/go-vmware-nsxt/loadbalancer"
+	clientset "k8s.io/client-go/kubernetes"
+	cloudprovider "k8s.io/cloud-provider"
 )
+
+// LoadBalancer is the interface used call the load balancer functionality
+// It extends the cloud controller manager LoadBalancer interface by an
+// initialization function
+type LoadBalancer interface {
+	cloudprovider.LoadBalancer
+	Initialize(client clientset.Interface, stop <-chan struct{})
+}
 
 // Access provides methods for dealing with NSX-T objects
 type Access interface {

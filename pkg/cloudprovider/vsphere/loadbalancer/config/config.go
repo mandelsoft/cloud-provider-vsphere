@@ -98,10 +98,12 @@ type NsxtConfig struct {
 	CAFile             string `gcfg:"ca-file"`
 }
 
+// NsxtSimulation is a helper configuration to pass fake data for testing purposes
 type NsxtSimulation struct {
 	SimulatedIPPools []string `gcfg:"simulatedIPPools"`
 }
 
+// IsEnabled checks whether the load balancer feature is enabled
 func (cfg *LBConfig) IsEnabled() bool {
 	return len(cfg.LoadBalancerClasses) > 0 || !cfg.LoadBalancer.IsEmpty()
 }
@@ -141,6 +143,7 @@ func (cfg *LBConfig) validateConfig() error {
 	return nil
 }
 
+// IsEmpty checks whether the load balancer config is empty (no values specified)
 func (cfg *LoadBalancerConfig) IsEmpty() bool {
 	return cfg.Size == "" && cfg.LBServiceID == "" &&
 		cfg.IPPoolID == "" && cfg.IPPoolName == "" &&
@@ -258,6 +261,7 @@ func ReadConfig(config io.Reader) (*LBConfig, error) {
 	return cfg, nil
 }
 
+// CompleteAndValidate validates the configuration after filling in defaults
 func (cfg *LBConfig) CompleteAndValidate() error {
 	if cfg.IsEnabled() {
 		if cfg.NSXT.MaxRetries == 0 {

@@ -19,10 +19,10 @@ package vsphere
 import (
 	"sync"
 
-	"k8s.io/api/core/v1"
-	"k8s.io/cloud-provider"
+	v1 "k8s.io/api/core/v1"
+	cloudprovider "k8s.io/cloud-provider"
 
-	clientset "k8s.io/client-go/kubernetes"
+	"k8s.io/cloud-provider-vsphere/pkg/cloudprovider/vsphere/loadbalancer"
 	lbcfg "k8s.io/cloud-provider-vsphere/pkg/cloudprovider/vsphere/loadbalancer/config"
 	vcfg "k8s.io/cloud-provider-vsphere/pkg/common/config"
 	cm "k8s.io/cloud-provider-vsphere/pkg/common/connectionmanager"
@@ -54,18 +54,13 @@ type CPIConfig struct {
 	}
 }
 
-type LoadBalancer interface {
-	cloudprovider.LoadBalancer
-	Initialize(client clientset.Interface, stop <-chan struct{})
-}
-
 // VSphere is an implementation of cloud provider Interface for VSphere.
 type VSphere struct {
 	cfg               *CPIConfig
 	connectionManager *cm.ConnectionManager
 	nodeManager       *NodeManager
 	informMgr         *k8s.InformerManager
-	loadbalancer      LoadBalancer
+	loadbalancer      loadbalancer.LoadBalancer
 	instances         cloudprovider.Instances
 	zones             cloudprovider.Zones
 	server            GRPCServer

@@ -22,10 +22,11 @@ package main
 import (
 	goflag "flag"
 	"fmt"
-	"k8s.io/cloud-provider-vsphere/pkg/cloudprovider/vsphere/loadbalancer"
 	"math/rand"
 	"os"
 	"time"
+
+	"k8s.io/cloud-provider-vsphere/pkg/cloudprovider/vsphere/loadbalancer"
 
 	"k8s.io/component-base/cli/flag"
 	"k8s.io/component-base/logs"
