@@ -12,7 +12,7 @@
  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  See the License for the specific language governing permissions and
  limitations under the License.
- */
+*/
 
 package loadbalancer
 
@@ -32,8 +32,8 @@ import (
 )
 
 const (
-	// AnnotLoadBalancerClass is the optional class annotation at the service
-	AnnotLoadBalancerClass = "loadbalancer.vmware.io/class"
+	// LoadBalancerClassAnnotation is the optional class annotation at the service
+	LoadBalancerClassAnnotation = "loadbalancer.vmware.io/class"
 )
 
 var (
@@ -167,7 +167,7 @@ func (p *lbProvider) classFromService(service *corev1.Service) (*loadBalancerCla
 	if annos == nil {
 		annos = map[string]string{}
 	}
-	name, ok := annos[AnnotLoadBalancerClass]
+	name, ok := annos[LoadBalancerClassAnnotation]
 	name = strings.TrimSpace(name)
 	if !ok || name == "" {
 		name = config.DefaultLoadBalancerClass

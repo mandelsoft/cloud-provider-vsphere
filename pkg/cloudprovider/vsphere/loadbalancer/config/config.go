@@ -12,7 +12,7 @@
  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  See the License for the specific language governing permissions and
  limitations under the License.
- */
+*/
 
 package config
 
@@ -27,18 +27,18 @@ import (
 )
 
 const (
-	// SizeSmall is the NSX-T load balancer size small (10 virtual servers)
+	// SizeSmall is the NSX-T load balancer size small
 	SizeSmall = "SMALL"
-	// SizeMedium is the NSX-T load balancer size medium (100 virtual servers)
+	// SizeMedium is the NSX-T load balancer size medium
 	SizeMedium = "MEDIUM"
-	// SizeLarge is the NSX-T load balancer size large (1000 virtual servers)
+	// SizeLarge is the NSX-T load balancer size large
 	SizeLarge = "LARGE"
 
 	// DefaultMaxRetries is the default value for max retries
 	DefaultMaxRetries = 30
-	// DefaultRetryMinDelay is teh default value for minimum retry delay
+	// DefaultRetryMinDelay is the default value for minimum retry delay
 	DefaultRetryMinDelay = 500
-	// DefaultRetryMaxDelay is teh default value for maximum retry delay
+	// DefaultRetryMaxDelay is the default value for maximum retry delay
 	DefaultRetryMaxDelay = 5000
 
 	// DefaultLoadBalancerClass is the default load balancer class
@@ -52,7 +52,7 @@ var SizeToMaxVirtualServers = map[string]int{
 	SizeLarge:  1000,
 }
 
-// LBConfig  is used to read and store information from the cloud configuration file
+// LBConfig is used to read and store information from the cloud configuration file
 type LBConfig struct {
 	LoadBalancer        LoadBalancerConfig                  `gcfg:"LoadBalancer"`
 	LoadBalancerClasses map[string]*LoadBalancerClassConfig `gcfg:"LoadBalancerClass"`
@@ -84,7 +84,7 @@ type NsxtConfig struct {
 	Password string `gcfg:"password"`
 	// NSX-T host.
 	Host string `gcfg:"host"`
-	// True if vCenter uses self-signed cert.
+	// True if NSX-T uses self-signed cert.
 	InsecureFlag       bool   `gcfg:"insecure-flag"`
 	RemoteAuth         bool   `gcfg:"remote-auth"`
 	MaxRetries         int    `gcfg:"max-retries"`
@@ -129,8 +129,8 @@ func (cfg *LBConfig) validateConfig() error {
 			return fmt.Errorf(msg)
 		}
 	} else {
-		if cfg.LoadBalancer.IPPoolName == "" && cfg.LoadBalancer.IPPoolID == "" {
-			msg := "load balancer ipPoolName and ipPoolID is empty"
+		if cfg.LoadBalancer.IPPoolName != "" && cfg.LoadBalancer.IPPoolID != "" {
+			msg := "load balancer ipPoolName and ipPoolID is given"
 			klog.Errorf(msg)
 			return fmt.Errorf(msg)
 		}
@@ -239,9 +239,9 @@ func (cfg *NsxtConfig) FromEnv() error {
 	return nil
 }
 
-// ReadConfig parses vSphere cloud config file and stores it into VSphereConfig.
+// readConfig parses vSphere cloud config file and stores it into LBConfig.
 // Environment variables are also checked
-func ReadConfig(config io.Reader) (*LBConfig, error) {
+func readConfig(config io.Reader) (*LBConfig, error) {
 	if config == nil {
 		return nil, fmt.Errorf("no vSphere cloud provider config file given")
 	}

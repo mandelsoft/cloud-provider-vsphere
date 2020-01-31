@@ -20,13 +20,12 @@ import (
 	"io"
 	"runtime"
 
-	"k8s.io/cloud-provider-vsphere/pkg/cloudprovider/vsphere/loadbalancer"
-
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/klog"
 
 	cloudprovider "k8s.io/cloud-provider"
 
+	"k8s.io/cloud-provider-vsphere/pkg/cloudprovider/vsphere/loadbalancer"
 	"k8s.io/cloud-provider-vsphere/pkg/cloudprovider/vsphere/server"
 	cm "k8s.io/cloud-provider-vsphere/pkg/common/connectionmanager"
 	k8s "k8s.io/cloud-provider-vsphere/pkg/common/kubernetes"
