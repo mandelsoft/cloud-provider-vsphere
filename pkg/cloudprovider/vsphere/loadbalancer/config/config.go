@@ -261,37 +261,35 @@ func readConfig(config io.Reader) (*LBConfig, error) {
 
 // CompleteAndValidate validates the configuration after filling in defaults
 func (cfg *LBConfig) CompleteAndValidate() error {
-	if cfg.IsEnabled() {
-		if cfg.NSXT.MaxRetries == 0 {
-			cfg.NSXT.MaxRetries = DefaultMaxRetries
-		}
-		if cfg.NSXT.RetryMinDelay == 0 {
-			cfg.NSXT.RetryMinDelay = DefaultRetryMinDelay
-		}
-		if cfg.NSXT.RetryMaxDelay == 0 {
-			cfg.NSXT.RetryMaxDelay = DefaultRetryMaxDelay
-		}
-		if cfg.LoadBalancerClasses == nil {
-			cfg.LoadBalancerClasses = map[string]*LoadBalancerClassConfig{}
-		}
-		for _, class := range cfg.LoadBalancerClasses {
-			if class.IPPoolName == "" {
-				if class.IPPoolID == "" {
-					class.IPPoolID = cfg.LoadBalancer.IPPoolID
-					class.IPPoolName = cfg.LoadBalancer.IPPoolName
-				}
-			}
-		}
+	if !cfg.IsEnabled() {
+		return nil
+	}
 
-		// Env Vars should override config file entries if present
-		if err := cfg.NSXT.FromEnv(); err != nil {
-			return err
-		}
-
-		if err := cfg.validateConfig(); err != nil {
-			return err
+	if cfg.NSXT.MaxRetries == 0 {
+		cfg.NSXT.MaxRetries = DefaultMaxRetries
+	}
+	if cfg.NSXT.RetryMinDelay == 0 {
+		cfg.NSXT.RetryMinDelay = DefaultRetryMinDelay
+	}
+	if cfg.NSXT.RetryMaxDelay == 0 {
+		cfg.NSXT.RetryMaxDelay = DefaultRetryMaxDelay
+	}
+	if cfg.LoadBalancerClasses == nil {
+		cfg.LoadBalancerClasses = map[string]*LoadBalancerClassConfig{}
+	}
+	for _, class := range cfg.LoadBalancerClasses {
+		if class.IPPoolName == "" && class.IPPoolID == "" {
+			class.IPPoolID = cfg.LoadBalancer.IPPoolID
+			class.IPPoolName = cfg.LoadBalancer.IPPoolName
 		}
 	}
 
-	return nil
+	// Env Vars should override config file entries if present
+	if err := cfg.NSXT.FromEnv(); err != nil {
+		return err
+	}
+
+	if err := cfg.validateConfig(); err != nil {
+		return err
+	}
 }
