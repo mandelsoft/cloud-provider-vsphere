@@ -22,6 +22,7 @@ import (
 	"strings"
 
 	"github.com/vmware/go-vmware-nsxt/common"
+	"k8s.io/apimachinery/pkg/types"
 )
 
 // Tags is a map of NSXT-T tags indexed by the tag scope
@@ -62,7 +63,7 @@ func clusterTag(clusterName string) common.Tag {
 	return common.Tag{Scope: ScopeCluster, Tag: clusterName}
 }
 
-func serviceTag(objectName ObjectName) common.Tag {
+func serviceTag(objectName types.NamespacedName) common.Tag {
 	return common.Tag{Scope: ScopeService, Tag: objectName.String()}
 }
 

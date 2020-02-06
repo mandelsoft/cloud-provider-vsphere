@@ -20,6 +20,8 @@ import (
 	"fmt"
 	"net/http"
 
+	"k8s.io/apimachinery/pkg/types"
+
 	"k8s.io/cloud-provider-vsphere/pkg/cloudprovider/vsphere/loadbalancer/config"
 
 	"github.com/pkg/errors"
@@ -175,7 +177,7 @@ func (a *access) DeleteLoadBalancerService(id string) error {
 	return nil
 }
 
-func (a *access) CreateVirtualServer(clusterName string, objectName ObjectName, tags TagSource, ipAddress string, mapping Mapping, poolID string) (*loadbalancer.LbVirtualServer, error) {
+func (a *access) CreateVirtualServer(clusterName string, objectName types.NamespacedName, tags TagSource, ipAddress string, mapping Mapping, poolID string) (*loadbalancer.LbVirtualServer, error) {
 	virtualServer := loadbalancer.LbVirtualServer{
 		Description: fmt.Sprintf("virtual server for cluster %s, service %s created by %s",
 			clusterName, objectName, AppName),
@@ -195,7 +197,7 @@ func (a *access) CreateVirtualServer(clusterName string, objectName ObjectName, 
 	return &result, nil
 }
 
-func (a *access) FindVirtualServers(clusterName string, objectName ObjectName) ([]*loadbalancer.LbVirtualServer, error) {
+func (a *access) FindVirtualServers(clusterName string, objectName types.NamespacedName) ([]*loadbalancer.LbVirtualServer, error) {
 	return a.listVirtualServers(a.ownerTag, clusterTag(clusterName), serviceTag(objectName))
 }
 
@@ -237,7 +239,7 @@ func (a *access) DeleteVirtualServer(id string) error {
 	return nil
 }
 
-func (a *access) CreatePool(clusterName string, objectName ObjectName, mapping Mapping, members []loadbalancer.PoolMember, activeMonitorIds []string) (*loadbalancer.LbPool, error) {
+func (a *access) CreatePool(clusterName string, objectName types.NamespacedName, mapping Mapping, members []loadbalancer.PoolMember, activeMonitorIds []string) (*loadbalancer.LbPool, error) {
 	pool := loadbalancer.LbPool{
 		Description:      fmt.Sprintf("pool for cluster %s, service %s created by %s", clusterName, objectName, AppName),
 		DisplayName:      fmt.Sprintf("cluster:%s:%s", clusterName, objectName),
@@ -261,7 +263,7 @@ func (a *access) GetPool(id string) (*loadbalancer.LbPool, error) {
 	return &pool, nil
 }
 
-func (a *access) FindPool(clusterName string, objectName ObjectName, mapping Mapping) (*loadbalancer.LbPool, error) {
+func (a *access) FindPool(clusterName string, objectName types.NamespacedName, mapping Mapping) (*loadbalancer.LbPool, error) {
 	list, err := a.broker.ListLoadBalancerPools()
 	if err != nil {
 		return nil, errors.Wrapf(err, "listing load balancer pools failed")
@@ -274,7 +276,7 @@ func (a *access) FindPool(clusterName string, objectName ObjectName, mapping Map
 	return nil, nil
 }
 
-func (a *access) FindPools(clusterName string, objectName ObjectName) ([]*loadbalancer.LbPool, error) {
+func (a *access) FindPools(clusterName string, objectName types.NamespacedName) ([]*loadbalancer.LbPool, error) {
 	return a.listPools(a.ownerTag, clusterTag(clusterName), serviceTag(objectName))
 }
 
@@ -316,7 +318,7 @@ func (a *access) DeletePool(id string) error {
 	return nil
 }
 
-func (a *access) CreateTCPMonitor(clusterName string, objectName ObjectName, mapping Mapping) (*loadbalancer.LbTcpMonitor, error) {
+func (a *access) CreateTCPMonitor(clusterName string, objectName types.NamespacedName, mapping Mapping) (*loadbalancer.LbTcpMonitor, error) {
 	monitor, err := a.broker.CreateLoadBalancerTCPMonitor(loadbalancer.LbTcpMonitor{
 		Description: fmt.Sprintf("tcp monitor for cluster %s, service %s, port %d created by %s",
 			clusterName, objectName, mapping.NodePort, AppName),
@@ -338,7 +340,7 @@ func (a *access) GetTCPMonitor(id string) (*loadbalancer.LbTcpMonitor, error) {
 	return &monitor, nil
 }
 
-func (a *access) FindTCPMonitors(clusterName string, objectName ObjectName) ([]*loadbalancer.LbTcpMonitor, error) {
+func (a *access) FindTCPMonitors(clusterName string, objectName types.NamespacedName) ([]*loadbalancer.LbTcpMonitor, error) {
 	list, err := a.broker.ListLoadBalancerMonitors()
 	if err != nil {
 		return nil, errors.Wrapf(err, "listing load balancer monitors failed")

@@ -20,6 +20,7 @@ import (
 	"context"
 	"time"
 
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/klog"
 
 	corev1 "k8s.io/api/core/v1"
@@ -80,14 +81,14 @@ func (p *lbProvider) doReorgStep(client clientcorev1.ServiceInterface) error {
 		return err
 	}
 
-	services := map[ObjectName]corev1.Service{}
+	services := map[types.NamespacedName]corev1.Service{}
 	for _, item := range list.Items {
 		if item.Spec.Type == corev1.ServiceTypeLoadBalancer {
 			services[objectNameFromService(&item)] = item
 		}
 	}
 
-	lbs := map[ObjectName]struct{}{}
+	lbs := map[types.NamespacedName]struct{}{}
 	servers, err := p.access.ListVirtualServers(ClusterName)
 	if err != nil {
 		return err
