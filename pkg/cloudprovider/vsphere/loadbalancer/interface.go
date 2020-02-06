@@ -31,8 +31,8 @@ type LoadBalancer interface {
 	Initialize(client clientset.Interface, stop <-chan struct{})
 }
 
-// Access provides methods for dealing with NSX-T objects
-type Access interface {
+// NSXTAccess provides methods for dealing with NSX-T objects
+type NSXTAccess interface {
 	// CreateLoadBalancerService creates a LbService
 	CreateLoadBalancerService(clusterName string) (*loadbalancer.LbService, error)
 	// FindLoadBalancerService finds a LbService by cluster name and LB service id

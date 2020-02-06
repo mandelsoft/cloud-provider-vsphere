@@ -49,10 +49,10 @@ type access struct {
 	standardTags Tags
 }
 
-var _ Access = &access{}
+var _ NSXTAccess = &access{}
 
-// NewAccess creates a new Access instance
-func NewAccess(broker NsxtBroker, config *config.LBConfig) (Access, error) {
+// NewAccess creates a new NSXTAccess instance
+func NewAccess(broker NsxtBroker, config *config.LBConfig) (NSXTAccess, error) {
 	standardTags := Tags{
 		ScopeOwner: common.Tag{Scope: ScopeOwner, Tag: AppName},
 	}

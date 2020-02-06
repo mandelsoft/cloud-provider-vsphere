@@ -38,7 +38,7 @@ type loadBalancerClass struct {
 	tags       []common.Tag
 }
 
-func setupClasses(access Access, cfg *config.LBConfig) (*loadBalancerClasses, error) {
+func setupClasses(access NSXTAccess, cfg *config.LBConfig) (*loadBalancerClasses, error) {
 	max, ok := config.SizeToMaxVirtualServers[cfg.LoadBalancer.Size]
 	if !ok {
 		return nil, fmt.Errorf("invalid load balancer size %s", cfg.LoadBalancer.Size)
@@ -82,7 +82,7 @@ func (c *loadBalancerClasses) GetClass(name string) *loadBalancerClass {
 	return c.classes[name]
 }
 
-func (c *loadBalancerClasses) add(access Access, name string, classConfig *config.LoadBalancerClassConfig, defaultConfig *config.LoadBalancerClassConfig) error {
+func (c *loadBalancerClasses) add(access NSXTAccess, name string, classConfig *config.LoadBalancerClassConfig, defaultConfig *config.LoadBalancerClassConfig) error {
 	var err error
 	ipPoolName := classConfig.IPPoolName
 	ipPoolID := classConfig.IPPoolID
