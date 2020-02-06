@@ -26,9 +26,8 @@ import (
 )
 
 type loadBalancerClasses struct {
-	size              string
-	maxVirtualServers int
-	classes           map[string]*loadBalancerClass
+	size    string
+	classes map[string]*loadBalancerClass
 }
 
 type loadBalancerClass struct {
@@ -39,15 +38,13 @@ type loadBalancerClass struct {
 }
 
 func setupClasses(access NSXTAccess, cfg *config.LBConfig) (*loadBalancerClasses, error) {
-	max, ok := config.SizeToMaxVirtualServers[cfg.LoadBalancer.Size]
-	if !ok {
+	if !config.LoadBalancerSizes.Has(cfg.LoadBalancer.Size) {
 		return nil, fmt.Errorf("invalid load balancer size %s", cfg.LoadBalancer.Size)
 	}
 
 	lbClasses := &loadBalancerClasses{
-		size:              cfg.LoadBalancer.Size,
-		maxVirtualServers: max,
-		classes:           map[string]*loadBalancerClass{},
+		size:    cfg.LoadBalancer.Size,
+		classes: map[string]*loadBalancerClass{},
 	}
 
 	defaultConfig := &config.LoadBalancerClassConfig{

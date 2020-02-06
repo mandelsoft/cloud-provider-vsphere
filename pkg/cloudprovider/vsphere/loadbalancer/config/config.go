@@ -23,6 +23,8 @@ import (
 	"strconv"
 
 	"gopkg.in/gcfg.v1"
+
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/klog"
 )
 
@@ -45,12 +47,8 @@ const (
 	DefaultLoadBalancerClass = "default"
 )
 
-// SizeToMaxVirtualServers contains the mapping from size to maximum number of virtual servers
-var SizeToMaxVirtualServers = map[string]int{
-	SizeSmall:  20,
-	SizeMedium: 100,
-	SizeLarge:  1000,
-}
+// LoadBalancerSizes contains the valid size names
+var LoadBalancerSizes = sets.NewString(SizeSmall, SizeMedium, SizeLarge)
 
 // LBConfig is used to read and store information from the cloud configuration file
 type LBConfig struct {
@@ -112,7 +110,7 @@ func (cfg *LBConfig) validateConfig() error {
 		klog.Errorf(msg)
 		return fmt.Errorf(msg)
 	}
-	if _, ok := SizeToMaxVirtualServers[cfg.LoadBalancer.Size]; !ok {
+	if !LoadBalancerSizes.Has(cfg.LoadBalancer.Size) {
 		msg := "load balancer size is invalid"
 		klog.Errorf(msg)
 		return fmt.Errorf(msg)
@@ -289,7 +287,5 @@ func (cfg *LBConfig) CompleteAndValidate() error {
 		return err
 	}
 
-	if err := cfg.validateConfig(); err != nil {
-		return err
-	}
+	return cfg.validateConfig()
 }

@@ -120,8 +120,7 @@ func (a *access) FindLoadBalancerService(clusterName string, id string) (*loadba
 		return &result, nil
 	}
 	return a.findLoadBalancerService(clusterName, func(item *loadbalancer.LbService) bool {
-		free := config.SizeToMaxVirtualServers[item.Size] - len(item.VirtualServerIds)
-		return free > 0
+		return true
 	})
 }
 
