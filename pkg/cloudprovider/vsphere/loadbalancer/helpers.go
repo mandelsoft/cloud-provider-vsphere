@@ -19,15 +19,16 @@ package loadbalancer
 import (
 	"strings"
 
+	vapi_errors "github.com/vmware/vsphere-automation-sdk-go/lib/vapi/std/errors"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 )
 
-func objectNameFromService(service *corev1.Service) types.NamespacedName {
+func namespacedNameFromService(service *corev1.Service) types.NamespacedName {
 	return types.NamespacedName{Namespace: service.Namespace, Name: service.Name}
 }
 
-func parseObjectName(name string) types.NamespacedName {
+func parseNamespacedName(name string) types.NamespacedName {
 	parts := strings.Split(name, "/")
 	return types.NamespacedName{Namespace: parts[0], Name: parts[1]}
 }
@@ -55,4 +56,31 @@ func collectNodeInternalAddresses(nodes []*corev1.Node) map[string]string {
 		}
 	}
 	return set
+}
+
+func strptr(s string) *string {
+	return &s
+}
+
+func isNotFoundError(err error) bool {
+	if _, ok := err.(vapi_errors.NotFound); ok {
+		return true
+	}
+
+	return false
+}
+
+func boolptr(b bool) *bool {
+	return &b
+}
+
+func int64ptr(i int64) *int64 {
+	return &i
+}
+
+func safeEquals(a, b *string) bool {
+	if a == nil || b == nil {
+		return a == b
+	}
+	return *a == *b
 }

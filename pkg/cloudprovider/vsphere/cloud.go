@@ -20,6 +20,7 @@ import (
 	"io"
 	"runtime"
 
+	"github.com/vmware/vsphere-automation-sdk-go/runtime/log"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/klog"
 
@@ -160,6 +161,8 @@ func buildVSphereFromConfig(cfg *CPIConfig) (*VSphere, error) {
 		klog.Infof("NSX-T load balancer support disabled")
 	} else {
 		klog.Infof("NSX-T load balancer support enabled")
+		// redirect vapi logging to klog
+		log.SetLogger(NewKlogBridge())
 	}
 	vs := VSphere{
 		cfg:          cfg,

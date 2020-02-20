@@ -19,10 +19,11 @@ package loadbalancer
 import (
 	"fmt"
 
-	"k8s.io/cloud-provider-vsphere/pkg/cloudprovider/vsphere/loadbalancer/config"
-
 	"github.com/pkg/errors"
-	"github.com/vmware/go-vmware-nsxt/common"
+	"github.com/vmware/vsphere-automation-sdk-go/services/nsxt/model"
+	corev1 "k8s.io/api/core/v1"
+
+	"k8s.io/cloud-provider-vsphere/pkg/cloudprovider/vsphere/loadbalancer/config"
 )
 
 type loadBalancerClasses struct {
@@ -31,10 +32,12 @@ type loadBalancerClasses struct {
 }
 
 type loadBalancerClass struct {
-	className  string
-	ipPoolName string
-	ipPoolID   string
-	tags       []common.Tag
+	className     string
+	ipPool        Reference
+	tcpAppProfile Reference
+	udpAppProfile Reference
+
+	tags []model.Tag
 }
 
 func setupClasses(access NSXTAccess, cfg *config.LBConfig) (*loadBalancerClasses, error) {
@@ -47,69 +50,127 @@ func setupClasses(access NSXTAccess, cfg *config.LBConfig) (*loadBalancerClasses
 		classes: map[string]*loadBalancerClass{},
 	}
 
-	defaultConfig := &config.LoadBalancerClassConfig{
-		IPPoolName: cfg.LoadBalancer.IPPoolName,
-		IPPoolID:   cfg.LoadBalancer.IPPoolID,
+	resolver := &ipPoolResolver{access: access, knownIPPools: map[string]string{}}
+	defaultClass, err := newLBClass(config.DefaultLoadBalancerClass, &cfg.LoadBalancer.LoadBalancerClassConfig, nil, resolver)
+	if err != nil {
+		return nil, errors.Wrapf(err, "invalid LoadBalancerClass %s", config.DefaultLoadBalancerClass)
 	}
-	if defCfg, ok := cfg.LoadBalancerClasses[config.DefaultLoadBalancerClass]; ok {
-		if defCfg.IPPoolID != "" || defCfg.IPPoolName != "" {
-			defaultConfig = defCfg
-		}
-	} else {
-		err := lbClasses.add(access, config.DefaultLoadBalancerClass, defaultConfig, defaultConfig)
+	if defCfg, ok := cfg.LoadBalancerClasses[defaultClass.className]; ok {
+		defaultClass, err = newLBClass(config.DefaultLoadBalancerClass, defCfg, defaultClass, resolver)
 		if err != nil {
 			return nil, errors.Wrapf(err, "invalid LoadBalancerClass %s", config.DefaultLoadBalancerClass)
 		}
+	} else {
+		lbClasses.add(defaultClass)
 	}
 
 	for name, classConfig := range cfg.LoadBalancerClasses {
 		if _, ok := lbClasses.classes[name]; ok {
 			return nil, fmt.Errorf("duplicate LoadBalancerClass %s", name)
 		}
-		err := lbClasses.add(access, name, classConfig, defaultConfig)
+		class, err := newLBClass(name, classConfig, defaultClass, resolver)
 		if err != nil {
 			return nil, errors.Wrapf(err, "invalid LoadBalancerClass %s", name)
 		}
+		lbClasses.add(class)
 	}
 
 	return lbClasses, nil
+}
+
+func (c *loadBalancerClasses) GetClassNames() []string {
+	names := make([]string, 0, len(c.classes))
+	for name := range c.classes {
+		names = append(names, name)
+	}
+	return names
 }
 
 func (c *loadBalancerClasses) GetClass(name string) *loadBalancerClass {
 	return c.classes[name]
 }
 
-func (c *loadBalancerClasses) add(access NSXTAccess, name string, classConfig *config.LoadBalancerClassConfig, defaultConfig *config.LoadBalancerClassConfig) error {
+func (c *loadBalancerClasses) add(class *loadBalancerClass) {
+	c.classes[class.className] = class
+}
+
+type ipPoolResolver struct {
+	access       NSXTAccess
+	knownIPPools map[string]string
+}
+
+func (r *ipPoolResolver) resolve(ipPool *Reference) error {
 	var err error
-	ipPoolName := classConfig.IPPoolName
-	ipPoolID := classConfig.IPPoolID
-	if ipPoolID == "" && ipPoolName == "" {
-		ipPoolID = defaultConfig.IPPoolID
-		ipPoolName = defaultConfig.IPPoolName
-	}
+	ipPoolID := ipPool.Identifier
 	if ipPoolID == "" {
-		ipPoolID, err = access.FindIPPoolByName(classConfig.IPPoolName)
-		if err != nil {
-			return err
+		var ok bool
+		ipPoolID, ok = r.knownIPPools[ipPool.Name]
+		if !ok {
+			ipPoolID, err = r.access.FindIPPoolByName(ipPool.Name)
+			if err != nil {
+				return err
+			}
+			r.knownIPPools[ipPool.Name] = ipPoolID
 		}
+		ipPool.Identifier = ipPoolID
 	}
-	c.classes[name] = newLBClass(name, ipPoolID, ipPoolName)
 	return nil
 }
 
-func newLBClass(name, ipPoolID, ipPoolName string) *loadBalancerClass {
-	tags := []common.Tag{
-		{Scope: ScopeIPPoolID, Tag: ipPoolID},
-		{Scope: ScopeLBClass, Tag: name},
+func newLBClass(name string, classConfig *config.LoadBalancerClassConfig, defaults *loadBalancerClass, resolver *ipPoolResolver) (*loadBalancerClass, error) {
+	class := loadBalancerClass{
+		className: name,
+		ipPool: Reference{
+			Identifier: classConfig.IPPoolID,
+			Name:       classConfig.IPPoolName,
+		},
+		tcpAppProfile: Reference{
+			Identifier: classConfig.TCPAppProfilePath,
+			Name:       classConfig.TCPAppProfileName,
+		},
+		udpAppProfile: Reference{
+			Identifier: classConfig.UDPAppProfilePath,
+			Name:       classConfig.UDPAppProfileName,
+		},
 	}
-	return &loadBalancerClass{
-		className:  name,
-		ipPoolName: ipPoolName,
-		ipPoolID:   ipPoolID,
-		tags:       tags,
+	if defaults != nil {
+		if class.ipPool.IsEmpty() {
+			class.ipPool = defaults.ipPool
+		}
+		if class.tcpAppProfile.IsEmpty() {
+			class.tcpAppProfile = defaults.tcpAppProfile
+		}
+		if class.udpAppProfile.IsEmpty() {
+			class.udpAppProfile = defaults.udpAppProfile
+		}
 	}
+	if resolver != nil {
+		err := resolver.resolve(&class.ipPool)
+		if err != nil {
+			return nil, err
+		}
+	} else if class.ipPool.Identifier == "" {
+		return nil, fmt.Errorf("ipPoolResolver needed if IP pool ID not provided")
+	}
+	class.tags = []model.Tag{
+		newTag(ScopeIPPoolID, class.ipPool.Identifier),
+		newTag(ScopeLBClass, class.className),
+	}
+
+	return &class, nil
 }
 
-func (c *loadBalancerClass) Tags() []common.Tag {
+func (c *loadBalancerClass) Tags() []model.Tag {
 	return c.tags
+}
+
+func (c *loadBalancerClass) AppProfile(protocol corev1.Protocol) (Reference, error) {
+	switch protocol {
+	case corev1.ProtocolTCP:
+		return c.tcpAppProfile, nil
+	case corev1.ProtocolUDP:
+		return c.udpAppProfile, nil
+	default:
+		return Reference{}, fmt.Errorf("unexpected protocol: %s", protocol)
+	}
 }

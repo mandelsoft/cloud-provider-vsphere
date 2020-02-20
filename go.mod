@@ -9,18 +9,21 @@ require (
 	github.com/golang/groupcache v0.0.0-20190702054246-869f871628b6 // indirect
 	github.com/golang/protobuf v1.3.2
 	github.com/google/btree v1.0.0 // indirect
+	github.com/google/uuid v1.1.1
 	github.com/imdario/mergo v0.3.7 // indirect
 	github.com/opencontainers/go-digest v1.0.0-rc1 // indirect
 	github.com/pkg/errors v0.8.0
 	github.com/prometheus/client_golang v0.9.3-0.20190127221311-3c4408c8b829
 	github.com/spf13/cobra v0.0.3
 	github.com/spf13/pflag v1.0.3
-	github.com/vmware/go-vmware-nsxt v0.0.0-20190201205556-16aa0443042d // master
 	github.com/vmware/govmomi v0.21.0
-	golang.org/x/lint v0.0.0-20190409202823-959b441ac422 // indirect
-	golang.org/x/net v0.0.0-20190724013045-ca1201d0de80
+	github.com/vmware/vsphere-automation-sdk-go/lib v0.1.1
+	github.com/vmware/vsphere-automation-sdk-go/runtime v0.1.1
+	github.com/vmware/vsphere-automation-sdk-go/services/nsxt v0.1.1
+	golang.org/x/lint v0.0.0-20200130185559-910be7a94367 // indirect
+	golang.org/x/net v0.0.0-20200114155413-6afb5195e5aa
 	golang.org/x/time v0.0.0-20190308202827-9d24e82272b4 // indirect
-	golang.org/x/tools v0.0.0-20190827205025-b29f5f60c37a // indirect
+	golang.org/x/tools v0.0.0-20200216192241-b320d3a0f5a2 // indirect
 	google.golang.org/grpc v1.22.1
 	gopkg.in/gcfg.v1 v1.2.3
 	gopkg.in/square/go-jose.v2 v2.3.1 // indirect

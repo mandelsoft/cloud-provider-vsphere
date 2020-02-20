@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/klog"
 
 	corev1 "k8s.io/api/core/v1"
@@ -84,8 +85,18 @@ func (p *lbProvider) doReorgStep(client clientcorev1.ServiceInterface) error {
 	services := map[types.NamespacedName]corev1.Service{}
 	for _, item := range list.Items {
 		if item.Spec.Type == corev1.ServiceTypeLoadBalancer {
-			services[objectNameFromService(&item)] = item
+			services[namespacedNameFromService(&item)] = item
 		}
+	}
+
+	return p.ReorgServices(services)
+}
+
+func (p *lbProvider) ReorgServices(services map[types.NamespacedName]corev1.Service) error {
+	ipPoolIds := sets.NewString()
+	for _, name := range p.classes.GetClassNames() {
+		class := p.classes.GetClass(name)
+		ipPoolIds.Insert(class.ipPool.Identifier)
 	}
 
 	lbs := map[types.NamespacedName]struct{}{}
@@ -96,9 +107,12 @@ func (p *lbProvider) doReorgStep(client clientcorev1.ServiceInterface) error {
 	for _, server := range servers {
 		tag := getTag(server.Tags, ScopeService)
 		if tag != "" {
-			lbs[parseObjectName(tag)] = struct{}{}
+			lbs[parseNamespacedName(tag)] = struct{}{}
 		}
+		ipPoolID := getTag(server.Tags, ScopeIPPoolID)
+		ipPoolIds.Insert(ipPoolID)
 	}
+	ipPoolIds.Delete("")
 
 	pools, err := p.access.ListPools(ClusterName)
 	if err != nil {
@@ -107,18 +121,31 @@ func (p *lbProvider) doReorgStep(client clientcorev1.ServiceInterface) error {
 	for _, pool := range pools {
 		tag := getTag(pool.Tags, ScopeService)
 		if tag != "" {
-			lbs[parseObjectName(tag)] = struct{}{}
+			lbs[parseNamespacedName(tag)] = struct{}{}
 		}
 	}
 
-	monitors, err := p.access.ListTCPMonitorLight(ClusterName)
+	monitors, err := p.access.ListTCPMonitorProfiles(ClusterName)
 	if err != nil {
 		return err
 	}
 	for _, pool := range monitors {
 		tag := getTag(pool.Tags, ScopeService)
 		if tag != "" {
-			lbs[parseObjectName(tag)] = struct{}{}
+			lbs[parseNamespacedName(tag)] = struct{}{}
+		}
+	}
+
+	for ipPoolID := range ipPoolIds {
+		ipAddressAllocs, err := p.access.ListExternalIPAddresses(ipPoolID, ClusterName)
+		if err != nil {
+			return err
+		}
+		for _, ipAddressAlloc := range ipAddressAllocs {
+			tag := getTag(ipAddressAlloc.Tags, ScopeService)
+			if tag != "" {
+				lbs[parseNamespacedName(tag)] = struct{}{}
+			}
 		}
 	}
 

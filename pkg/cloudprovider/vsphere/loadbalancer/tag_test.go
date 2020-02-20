@@ -19,38 +19,39 @@ package loadbalancer
 import (
 	"testing"
 
-	"github.com/vmware/go-vmware-nsxt/common"
+	"github.com/vmware/vsphere-automation-sdk-go/services/nsxt/model"
 )
 
-func _checkTags(t *testing.T, msg string, tags Tags, tag ...common.Tag) {
+func _checkTags(t *testing.T, msg string, tags Tags, tag ...model.Tag) {
 	if len(tags) != len(tag) {
 		t.Errorf("%s: length mismatch: expected %d entries, but found %d", msg, len(tag), len(tags))
 	}
 	for _, _t := range tag {
-		if f, ok := tags[_t.Scope]; ok {
-			if f != _t {
-				t.Errorf("%s: tag %q mismatch: expected %v, but found %v", msg, _t.Scope, _t, f)
+		scope := *_t.Scope
+		if f, ok := tags[scope]; ok {
+			if !_equalTag(f, _t) {
+				t.Errorf("%s: tag %q mismatch: expected %s, but found %s", msg, scope, *_t.Tag, *f.Tag)
 			}
 		} else {
-			t.Errorf("%s: tag with scope %q missing", msg, _t.Scope)
+			t.Errorf("%s: tag with scope %q missing", msg, scope)
 		}
 	}
 }
 
-func _checkNormTags(t *testing.T, msg string, tags []common.Tag, tag ...common.Tag) {
+func _equalTag(a, b model.Tag) bool {
+	return *a.Scope == *b.Scope && *a.Tag == *b.Tag
+}
+
+func _checkNormTags(t *testing.T, msg string, tags []model.Tag, tag ...model.Tag) {
 	if len(tags) != len(tag) {
 		t.Errorf("%s: length mismatch: expected %d entries, but found %d", msg, len(tag), len(tags))
 		return
 	}
 	for i, _t := range tag {
-		if tags[i] != _t {
-			t.Errorf("%s: entry %d: tag %q mismatch: expected %v, but found %v", msg, i, _t.Scope, _t, tags[i])
+		if !_equalTag(tags[i], _t) {
+			t.Errorf("%s: entry %d: tag %q mismatch: expected %v, but found %v", msg, i, *_t.Scope, *_t.Tag, *tags[i].Tag)
 		}
 	}
-}
-
-func newTag(scope, tag string) common.Tag {
-	return common.Tag{Scope: scope, Tag: tag}
 }
 
 func TestTagAdd(t *testing.T) {
@@ -61,24 +62,24 @@ func TestTagAdd(t *testing.T) {
 	t2 := newTag("t2", "v2")
 	t3 := newTag("t3", "v3")
 
-	n := tags.Add(t1, t2)
+	n := tags.Append(t1, t2)
 
 	_checkTags(t, "original tags still empty after add", tags)
 	_checkTags(t, "simple add", n, t1, t2)
 
 	tags = n
 
-	n = tags.Add(t1a)
+	n = tags.Append(t1a)
 	_checkTags(t, "replacing keeps original unchanged", tags, t1, t2)
 	_checkTags(t, "replace tag", n, t1a, t2)
 
-	n = tags.Add(t3)
+	n = tags.Append(t3)
 	_checkTags(t, "adding keeps original unchanged", tags, t1, t2)
 	_checkTags(t, "add tag", n, t1, t2, t3)
 
 	norm := n.Normalize()
 	_checkNormTags(t, "Normalize tags", norm, t1, t2, t3)
 
-	norm = Tags{}.Add(t3).Add(t2, t1).Normalize()
+	norm = Tags{}.Append(t3).Append(t2, t1).Normalize()
 	_checkNormTags(t, "Normalize tags with other add order", norm, t1, t2, t3)
 }

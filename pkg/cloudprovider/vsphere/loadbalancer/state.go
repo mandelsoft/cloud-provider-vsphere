@@ -19,11 +19,14 @@ package loadbalancer
 import (
 	"fmt"
 
-	"github.com/vmware/go-vmware-nsxt/loadbalancer"
+	"github.com/pkg/errors"
+	"github.com/vmware/vsphere-automation-sdk-go/services/nsxt/model"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/klog"
+
+	"k8s.io/cloud-provider-vsphere/pkg/cloudprovider/vsphere/loadbalancer/config"
 )
 
 var verboseLevel = klog.Level(2)
@@ -31,15 +34,16 @@ var verboseLevel = klog.Level(2)
 type state struct {
 	*lbService
 	klog.Verbose
-	clusterName string
-	objectName  types.NamespacedName
-	service     *corev1.Service
-	nodes       []*corev1.Node
-	servers     []*loadbalancer.LbVirtualServer
-	pools       []*loadbalancer.LbPool
-	tcpMonitors []*loadbalancer.LbTcpMonitor
-	ipAddress   string
-	class       *loadBalancerClass
+	clusterName    string
+	objectName     types.NamespacedName
+	service        *corev1.Service
+	nodes          []*corev1.Node
+	servers        []*model.LBVirtualServer
+	pools          []*model.LBPool
+	tcpMonitors    []*model.LBTcpMonitorProfile
+	ipAddressAlloc *model.IpAddressAllocation
+	ipAddress      *string
+	class          *loadBalancerClass
 }
 
 func newState(lbService *lbService, clusterName string, service *corev1.Service, nodes []*corev1.Node) *state {
@@ -48,7 +52,7 @@ func newState(lbService *lbService, clusterName string, service *corev1.Service,
 		clusterName: clusterName,
 		service:     service,
 		nodes:       nodes,
-		objectName:  objectNameFromService(service),
+		objectName:  namespacedNameFromService(service),
 		Verbose:     klog.V(verboseLevel),
 	}
 }
@@ -63,6 +67,10 @@ func (s *state) CtxInfof(format string, args ...interface{}) {
 // Process processes a load balancer and ensures that all needed objects are existing
 func (s *state) Process(class *loadBalancerClass) error {
 	var err error
+	s.ipAddressAlloc, s.ipAddress, err = s.access.FindExternalIPAddressForObject(class.ipPool.Identifier, s.clusterName, s.objectName)
+	if err != nil {
+		return err
+	}
 	s.servers, err = s.access.FindVirtualServers(s.clusterName, s.objectName)
 	if err != nil {
 		return err
@@ -71,19 +79,21 @@ func (s *state) Process(class *loadBalancerClass) error {
 	if err != nil {
 		return err
 	}
-	s.tcpMonitors, err = s.access.FindTCPMonitors(s.clusterName, s.objectName)
+	s.tcpMonitors, err = s.access.FindTCPMonitorProfiles(s.clusterName, s.objectName)
 	if err != nil {
 		return err
 	}
-	if len(s.service.Status.LoadBalancer.Ingress) > 0 {
-		s.ipAddress = s.service.Status.LoadBalancer.Ingress[0].IP
-	}
 	if len(s.servers) > 0 {
-		s.ipAddress = s.servers[0].IpAddress
 		className := getTag(s.servers[0].Tags, ScopeLBClass)
 		ipPoolID := getTag(s.servers[0].Tags, ScopeIPPoolID)
-		if class.className != className || class.ipPoolID != ipPoolID {
-			class = newLBClass(className, ipPoolID, "")
+		if class.className != className || class.ipPool.Identifier != ipPoolID {
+			classConfig := &config.LoadBalancerClassConfig{
+				IPPoolID: ipPoolID,
+			}
+			class, err = newLBClass(className, classConfig, class, nil)
+			if err != nil {
+				return err
+			}
 		}
 	}
 	s.class = class
@@ -99,22 +109,22 @@ func (s *state) Process(class *loadBalancerClass) error {
 		if err != nil {
 			return err
 		}
-		_, err = s.getVirtualServer(mapping, pool.Id)
+		_, err = s.getVirtualServer(mapping, pool.Path)
 		if err != nil {
 			return err
 		}
 	}
-	validPoolIds, err := s.deleteOrphanVirtualServers()
+	validPoolPaths, err := s.deleteOrphanVirtualServers()
 	if err != nil {
 		return err
 	}
-	s.CtxInfof("validPoolIds: %v", validPoolIds.List())
-	validTCPMonitorIds, err := s.deleteOrphanPools(validPoolIds)
+	s.CtxInfof("validPoolPaths: %v", validPoolPaths.List())
+	validTCPMonitorPaths, err := s.deleteOrphanPools(validPoolPaths)
 	if err != nil {
 		return err
 	}
-	s.CtxInfof("validTCPMonitorIds: %v", validTCPMonitorIds.List())
-	err = s.deleteOrphanTCPMonitors(validTCPMonitorIds)
+	s.CtxInfof("validTCPMonitorPaths: %v", validTCPMonitorPaths.List())
+	err = s.deleteOrphanTCPMonitors(validTCPMonitorPaths)
 	if err != nil {
 		return err
 	}
@@ -122,13 +132,15 @@ func (s *state) Process(class *loadBalancerClass) error {
 }
 
 func (s *state) deleteOrphanVirtualServers() (sets.String, error) {
-	validPoolIds := sets.String{}
+	validPoolPaths := sets.String{}
 	for _, server := range s.servers {
 		found := false
 		for _, servicePort := range s.service.Spec.Ports {
 			mapping := NewMapping(servicePort)
 			if mapping.MatchVirtualServer(server) {
-				validPoolIds.Insert(server.PoolId)
+				if server.PoolPath != nil {
+					validPoolPaths.Insert(*server.PoolPath)
+				}
 				found = true
 				break
 			}
@@ -140,18 +152,18 @@ func (s *state) deleteOrphanVirtualServers() (sets.String, error) {
 			}
 		}
 	}
-	return validPoolIds, nil
+	return validPoolPaths, nil
 }
 
-func (s *state) deleteOrphanPools(validPoolIds sets.String) (sets.String, error) {
-	validTCPMonitorIds := sets.String{}
+func (s *state) deleteOrphanPools(validPoolPaths sets.String) (sets.String, error) {
+	validTCPMonitorPaths := sets.String{}
 	for _, pool := range s.pools {
 		found := false
 		for _, servicePort := range s.service.Spec.Ports {
 			mapping := NewMapping(servicePort)
-			if mapping.MatchPool(pool) && validPoolIds.Has(pool.Id) {
-				if len(pool.ActiveMonitorIds) > 0 {
-					validTCPMonitorIds.Insert(pool.ActiveMonitorIds...)
+			if mapping.MatchPool(pool) && validPoolPaths.Has(*pool.Path) {
+				if len(pool.ActiveMonitorPaths) > 0 {
+					validTCPMonitorPaths.Insert(pool.ActiveMonitorPaths...)
 				}
 				found = true
 				break
@@ -164,15 +176,15 @@ func (s *state) deleteOrphanPools(validPoolIds sets.String) (sets.String, error)
 			}
 		}
 	}
-	return validTCPMonitorIds, nil
+	return validTCPMonitorPaths, nil
 }
 
-func (s *state) deleteOrphanTCPMonitors(validTCPMonitorIds sets.String) error {
+func (s *state) deleteOrphanTCPMonitors(validTCPMonitorPaths sets.String) error {
 	for _, monitor := range s.tcpMonitors {
 		found := false
 		for _, servicePort := range s.service.Spec.Ports {
 			mapping := NewMapping(servicePort)
-			if mapping.MatchTCPMonitor(monitor) && validTCPMonitorIds.Has(monitor.Id) {
+			if mapping.MatchTCPMonitor(monitor) && monitor.Path != nil && validTCPMonitorPaths.Has(*monitor.Path) {
 				found = true
 				break
 			}
@@ -188,38 +200,36 @@ func (s *state) deleteOrphanTCPMonitors(validTCPMonitorIds sets.String) error {
 }
 
 func (s *state) allocateResources() (allocated bool, err error) {
-	if s.ipAddress == "" {
-		s.ipAddress, err = s.access.AllocateExternalIPAddress(s.class.ipPoolID)
+	if s.ipAddressAlloc == nil {
+		ipPoolID := s.class.ipPool.Identifier
+		s.ipAddressAlloc, s.ipAddress, err = s.access.AllocateExternalIPAddress(ipPoolID, s.clusterName, s.objectName)
 		if err != nil {
 			return
 		}
 		allocated = true
-		s.CtxInfof("allocated IP address %s from pool %s", s.ipAddress, s.class.ipPoolID)
+		s.CtxInfof("allocated IP address %s from pool %s", *s.ipAddress, ipPoolID)
 	}
 	return
 }
 
 func (s *state) releaseResources() error {
-	if s.ipAddress != "" {
-		exists, err := s.access.IsAllocatedExternalIPAddress(s.class.ipPoolID, s.ipAddress)
+	if s.ipAddressAlloc != nil {
+		ipPoolID := s.class.ipPool.Identifier
+		err := s.access.ReleaseExternalIPAddress(ipPoolID, *s.ipAddressAlloc.Id)
 		if err != nil {
 			return err
 		}
-		if exists {
-			s.CtxInfof("releasing IP address %s to pool %s", s.ipAddress, s.class.ipPoolID)
-			err = s.access.ReleaseExternalIPAddress(s.class.ipPoolID, s.ipAddress)
-			if err != nil {
-				return err
-			}
-		}
+		s.ipAddressAlloc = nil
+		s.ipAddress = nil
 	}
 	return nil
 }
 
 func (s *state) loggedReleaseResources() {
+	ipAddress := s.ipAddress
 	err := s.releaseResources()
 	if err != nil {
-		s.CtxInfof("failed to release IP address %s to pool %s", s.ipAddress, s.class.ipPoolID)
+		s.CtxInfof("failed to release IP address %s to pool %s", *ipAddress, s.class.ipPool.Identifier)
 	}
 }
 
@@ -235,7 +245,7 @@ func (s *state) Finish() (*corev1.LoadBalancerStatus, error) {
 	return newLoadBalancerStatus(s.ipAddress), nil
 }
 
-func (s *state) getTCPMonitor(mapping Mapping) (*loadbalancer.LbTcpMonitor, error) {
+func (s *state) getTCPMonitor(mapping Mapping) (*model.LBTcpMonitorProfile, error) {
 	if mapping.Protocol == corev1.ProtocolTCP {
 		for _, m := range s.tcpMonitors {
 			if mapping.MatchTCPMonitor(m) {
@@ -251,48 +261,48 @@ func (s *state) getTCPMonitor(mapping Mapping) (*loadbalancer.LbTcpMonitor, erro
 	return nil, nil
 }
 
-func (s *state) createTCPMonitor(mapping Mapping) (*loadbalancer.LbTcpMonitor, error) {
-	monitor, err := s.access.CreateTCPMonitor(s.clusterName, s.objectName, mapping)
+func (s *state) createTCPMonitor(mapping Mapping) (*model.LBTcpMonitorProfile, error) {
+	monitor, err := s.access.CreateTCPMonitorProfile(s.clusterName, s.objectName, mapping)
 	if err == nil {
-		s.CtxInfof("created LbTcpMonitor %s for %s", monitor.Id, mapping)
+		s.CtxInfof("created LbTcpMonitor %s for %s", *monitor.Id, mapping)
 		s.tcpMonitors = append(s.tcpMonitors, monitor)
 	}
 	return monitor, err
 }
 
-func (s *state) updateTCPMonitor(monitor *loadbalancer.LbTcpMonitor, mapping Mapping) error {
-	if monitor.MonitorPort == fmt.Sprintf("%d", mapping.NodePort) {
+func (s *state) updateTCPMonitor(monitor *model.LBTcpMonitorProfile, mapping Mapping) error {
+	if monitor.MonitorPort != nil && *monitor.MonitorPort == int64(mapping.NodePort) {
 		return nil
 	}
-	monitor.MonitorPort = fmt.Sprintf("%d", mapping.NodePort)
-	s.CtxInfof("updating LbTcpMonitor %s for %s", monitor.Id, mapping)
-	return s.access.UpdateTCPMonitor(monitor)
+	monitor.MonitorPort = int64ptr(int64(mapping.NodePort))
+	s.CtxInfof("updating LbTcpMonitor %s for %s", *monitor.Id, mapping)
+	return s.access.UpdateTCPMonitorProfile(monitor)
 }
 
-func (s *state) deleteTCPMonitor(monitor *loadbalancer.LbTcpMonitor) error {
-	s.CtxInfof("deleting LbTcpMonitor %s for %s", monitor.Id, getTag(monitor.Tags, ScopePort))
-	return s.access.DeleteTCPMonitor(monitor.Id)
+func (s *state) deleteTCPMonitor(monitor *model.LBTcpMonitorProfile) error {
+	s.CtxInfof("deleting LbTcpMonitor %s for %s", *monitor.Id, getTag(monitor.Tags, ScopePort))
+	return s.access.DeleteTCPMonitorProfile(*monitor.Id)
 }
 
-func (s *state) getPool(mapping Mapping, monitor *loadbalancer.LbTcpMonitor) (*loadbalancer.LbPool, error) {
-	var activeMonitorIds []string
+func (s *state) getPool(mapping Mapping, monitor *model.LBTcpMonitorProfile) (*model.LBPool, error) {
+	var activeMonitorPaths []string
 	if monitor != nil {
-		activeMonitorIds = []string{monitor.Id}
+		activeMonitorPaths = []string{*monitor.Path}
 	}
 	for _, pool := range s.pools {
 		if mapping.MatchPool(pool) {
-			err := s.updatePool(pool, mapping, activeMonitorIds)
+			err := s.updatePool(pool, mapping, activeMonitorPaths)
 			return pool, err
 		}
 	}
-	return s.createPool(mapping, activeMonitorIds)
+	return s.createPool(mapping, activeMonitorPaths)
 }
 
-func (s *state) createPool(mapping Mapping, activeMonitorIds []string) (*loadbalancer.LbPool, error) {
+func (s *state) createPool(mapping Mapping, activeMonitorIds []string) (*model.LBPool, error) {
 	members, _ := s.updatedPoolMembers(nil)
 	pool, err := s.access.CreatePool(s.clusterName, s.objectName, mapping, members, activeMonitorIds)
 	if err == nil {
-		s.CtxInfof("created LbPool %s for %s", pool.Id, mapping)
+		s.CtxInfof("created LbPool %s for %s", *pool.Id, mapping)
 		s.pools = append(s.pools, pool)
 	}
 	return pool, err
@@ -307,7 +317,7 @@ func (s *state) UpdatePoolMembers() error {
 		mapping := NewMapping(servicePort)
 		for _, pool := range pools {
 			if mapping.MatchPool(pool) {
-				err = s.updatePool(pool, mapping, pool.ActiveMonitorIds)
+				err = s.updatePool(pool, mapping, pool.ActiveMonitorPaths)
 				if err != nil {
 					return err
 				}
@@ -317,12 +327,12 @@ func (s *state) UpdatePoolMembers() error {
 	return nil
 }
 
-func (s *state) updatePool(pool *loadbalancer.LbPool, mapping Mapping, activeMonitorIds []string) error {
+func (s *state) updatePool(pool *model.LBPool, mapping Mapping, activeMonitorPaths []string) error {
 	newMembers, modified := s.updatedPoolMembers(pool.Members)
-	if modified || !stringsEquals(activeMonitorIds, pool.ActiveMonitorIds) {
+	if modified || !stringsEquals(activeMonitorPaths, pool.ActiveMonitorPaths) {
 		pool.Members = newMembers
-		pool.ActiveMonitorIds = activeMonitorIds
-		s.CtxInfof("updating LbPool %s for %s, #members=%d", pool.Id, mapping, len(pool.Members))
+		pool.ActiveMonitorPaths = activeMonitorPaths
+		s.CtxInfof("updating LbPool %s for %s, #members=%d", *pool.Id, mapping, len(pool.Members))
 		err := s.access.UpdatePool(pool)
 		if err != nil {
 			return err
@@ -331,10 +341,10 @@ func (s *state) updatePool(pool *loadbalancer.LbPool, mapping Mapping, activeMon
 	return nil
 }
 
-func (s *state) updatedPoolMembers(oldMembers []loadbalancer.PoolMember) ([]loadbalancer.PoolMember, bool) {
+func (s *state) updatedPoolMembers(oldMembers []model.LBPoolMember) ([]model.LBPoolMember, bool) {
 	modified := false
 	nodeIPAddresses := collectNodeInternalAddresses(s.nodes)
-	newMembers := []loadbalancer.PoolMember{}
+	newMembers := []model.LBPoolMember{}
 	for _, member := range oldMembers {
 		if _, ok := nodeIPAddresses[member.IpAddress]; ok {
 			newMembers = append(newMembers, member)
@@ -352,9 +362,9 @@ func (s *state) updatedPoolMembers(oldMembers []loadbalancer.PoolMember) ([]load
 				}
 			}
 			if !found {
-				member := loadbalancer.PoolMember{
-					AdminState:  "ENABLED",
-					DisplayName: fmt.Sprintf("%s:%s", s.clusterName, nodeName),
+				member := model.LBPoolMember{
+					AdminState:  strptr("ENABLED"),
+					DisplayName: strptr(fmt.Sprintf("%s:%s", s.clusterName, nodeName)),
 					IpAddress:   nodeIPAddress,
 				}
 				newMembers = append(newMembers, member)
@@ -365,15 +375,15 @@ func (s *state) updatedPoolMembers(oldMembers []loadbalancer.PoolMember) ([]load
 	return newMembers, modified
 }
 
-func (s *state) deletePool(pool *loadbalancer.LbPool) error {
-	s.CtxInfof("deleting LbPool %s for %s", pool.Id, getTag(pool.Tags, ScopePort))
-	return s.access.DeletePool(pool.Id)
+func (s *state) deletePool(pool *model.LBPool) error {
+	s.CtxInfof("deleting LbPool %s for %s", *pool.Id, getTag(pool.Tags, ScopePort))
+	return s.access.DeletePool(*pool.Id)
 }
 
-func (s *state) getVirtualServer(mapping Mapping, poolID string) (*loadbalancer.LbVirtualServer, error) {
+func (s *state) getVirtualServer(mapping Mapping, poolPath *string) (*model.LBVirtualServer, error) {
 	for _, server := range s.servers {
 		if mapping.MatchVirtualServer(server) {
-			err := s.updateVirtualServer(server, mapping, poolID)
+			err := s.updateVirtualServer(server, mapping, poolPath)
 			if err != nil {
 				return nil, err
 			}
@@ -381,41 +391,49 @@ func (s *state) getVirtualServer(mapping Mapping, poolID string) (*loadbalancer.
 		}
 	}
 
-	return s.createVirtualServer(mapping, poolID)
+	return s.createVirtualServer(mapping, poolPath)
 }
 
-func (s *state) createVirtualServer(mapping Mapping, poolID string) (*loadbalancer.LbVirtualServer, error) {
+func (s *state) createVirtualServer(mapping Mapping, poolPath *string) (*model.LBVirtualServer, error) {
 	allocated, err := s.allocateResources()
 	if err != nil {
 		return nil, err
 	}
 
-	server, err := s.access.CreateVirtualServer(s.clusterName, s.objectName, s.class, s.ipAddress, mapping, poolID)
+	lbServicePath, err := s.lbService.getOrCreateLoadBalancerService(s.clusterName)
+	if err != nil {
+		return nil, errors.Wrapf(err, "get or create LBService failed")
+	}
+
+	applicationProfilePath, err := s.access.GetAppProfilePath(s.class, mapping.Protocol)
+	if err != nil {
+		return nil, errors.Wrapf(err, "Lookup of application profile failed for %s", mapping.Protocol)
+	}
+
+	server, err := s.access.CreateVirtualServer(s.clusterName, s.objectName, s.class, *s.ipAddress, mapping,
+		lbServicePath, applicationProfilePath, poolPath)
 	if err != nil {
 		if allocated {
 			s.loggedReleaseResources()
 		}
 		return nil, err
 	}
-	s.CtxInfof("created LbVirtualServer %s for %s", server.Id, mapping)
+	s.CtxInfof("created LBVirtualServer %s for %s", *server.Id, mapping)
 	s.servers = append(s.servers, server)
-	err = s.lbService.addVirtualServerToLoadBalancerService(s.clusterName, server.Id)
-	if err != nil {
-		_ = s.access.DeleteVirtualServer(server.Id)
-		if allocated {
-			s.loggedReleaseResources()
-		}
-		return nil, err
-	}
 	return server, nil
 }
 
-func (s *state) updateVirtualServer(server *loadbalancer.LbVirtualServer, mapping Mapping, poolID string) error {
-	if !mapping.MatchNodePort(server) || poolID != server.PoolId {
-		server.DefaultPoolMemberPort = formatPort(mapping.NodePort)
-		server.PoolId = poolID
-		s.CtxInfof("updating LbVirtualServer %s for %s", server.Id, mapping)
-		err := s.access.UpdateVirtualServer(server)
+func (s *state) updateVirtualServer(server *model.LBVirtualServer, mapping Mapping, poolPath *string) error {
+	applicationProfilePath, err := s.access.GetAppProfilePath(s.class, mapping.Protocol)
+	if err != nil {
+		return errors.Wrapf(err, "Lookup of application profile failed for %s", mapping.Protocol)
+	}
+	if !mapping.MatchNodePort(server) || !safeEquals(server.PoolPath, poolPath) || server.ApplicationProfilePath != applicationProfilePath {
+		server.ApplicationProfilePath = applicationProfilePath
+		server.DefaultPoolMemberPorts = []string{formatPort(mapping.NodePort)}
+		server.PoolPath = poolPath
+		s.CtxInfof("updating LbVirtualServer %s for %s", *server.Id, mapping)
+		err = s.access.UpdateVirtualServer(server)
 		if err != nil {
 			return err
 		}
@@ -423,11 +441,15 @@ func (s *state) updateVirtualServer(server *loadbalancer.LbVirtualServer, mappin
 	return nil
 }
 
-func (s *state) deleteVirtualServer(server *loadbalancer.LbVirtualServer) error {
-	err := s.lbService.removeVirtualServerFromLoadBalancerService(s.clusterName, server.Id)
+func (s *state) deleteVirtualServer(server *model.LBVirtualServer) error {
+	port := "?"
+	if len(server.DefaultPoolMemberPorts) > 0 {
+		port = server.DefaultPoolMemberPorts[0]
+	}
+	s.CtxInfof("deleting LbVirtualServer %s for %s->%s", *server.Id, getTag(server.Tags, ScopePort), port)
+	err := s.access.DeleteVirtualServer(*server.Id)
 	if err != nil {
 		return err
 	}
-	s.CtxInfof("deleting LbVirtualServer %s for %s->%s", server.Id, getTag(server.Tags, ScopePort), server.DefaultPoolMemberPort)
-	return s.access.DeleteVirtualServer(server.Id)
+	return s.lbService.removeLoadBalancerServiceIfUnused(s.clusterName)
 }

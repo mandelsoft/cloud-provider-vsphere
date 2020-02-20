@@ -60,7 +60,7 @@ type VSphere struct {
 	connectionManager *cm.ConnectionManager
 	nodeManager       *NodeManager
 	informMgr         *k8s.InformerManager
-	loadbalancer      loadbalancer.LoadBalancer
+	loadbalancer      loadbalancer.LBProvider
 	instances         cloudprovider.Instances
 	zones             cloudprovider.Zones
 	server            GRPCServer
