@@ -42,7 +42,6 @@ require (
 )
 
 replace (
-	github.com/vmware/go-vmware-nsxt => github.com/MartinWeindel/go-vmware-nsxt v0.0.0-20191129144634-29aa700ba036
 	gopkg.in/gcfg.v1 => github.com/mandelsoft/gcfg v1.2.4-0.20191118133708-71f203a139d3
 	// these replacements are pinned to e8462b5b5dc2 which is the sha associated with the 1.15.0 tag on k/k
 	// as you cannot pin them to v1.15.0 directly

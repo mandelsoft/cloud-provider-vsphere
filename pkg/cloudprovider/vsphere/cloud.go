@@ -20,11 +20,11 @@ import (
 	"io"
 	"runtime"
 
-	"github.com/vmware/vsphere-automation-sdk-go/runtime/log"
 	v1 "k8s.io/api/core/v1"
+	cloudprovider "k8s.io/cloud-provider"
 	"k8s.io/klog"
 
-	cloudprovider "k8s.io/cloud-provider"
+	"github.com/vmware/vsphere-automation-sdk-go/runtime/log"
 
 	"k8s.io/cloud-provider-vsphere/pkg/cloudprovider/vsphere/loadbalancer"
 	"k8s.io/cloud-provider-vsphere/pkg/cloudprovider/vsphere/server"

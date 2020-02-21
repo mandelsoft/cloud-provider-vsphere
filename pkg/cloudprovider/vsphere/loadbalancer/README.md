@@ -9,7 +9,8 @@ balancing API of the cloud controller for an NSX-T environment.
 There are two different modes:
 
 - the *managed* mode manages the load balancer service. The NSX-T load balancer
-  service is only created if it is required.
+  service is only created if it is required. The load balancer service will 
+  also be deleted automatically if not needed anymore.
   This saves resources if no kubernetes service of type `LoadBalancer` is
   actually used.
 - the *unmanaged* mode is used if the configuration specifies a load balancer
@@ -71,8 +72,11 @@ configuration file:
 [LoadBalancer]
 ipPoolName = pool1
 #ipPoolId = 0815
+#tier1GatewayPath = /infra/tier-1s/12345
 lbServiceId = 4711
-size = MEDIUM
+size = SMALL
+tcpAppProfileName = default-tcp-lb-app-profile
+udpAppProfileName = default-udp-lb-app-profile
 
 [LoadBalancerClass "public"]
 ipPoolName = poolPublic
@@ -88,13 +92,18 @@ tag2 = value2
 user = admin
 password = secret
 host = nsxt-server
-logicalRouterId = 1234
+#insecure-flag = true
+#vmcAccessToken = token123
+#vmcAuthHost = authHost
 ```
 
 Only one of `ipPoolId` or `ipPoolName` may be given.
 If the `lbServiceId` is given the controller is running in the *unmanaged*
-mode. Otherwise the `logicalRouterId` must be given. If both
+mode. Otherwise the `tier1GatewayPath` must be given. If both
 are given the configuration of the load balancer services is validated.
+
+The `tcpAppProfileName` and `udpAppProfileName` are used on creating
+virtual servers.
 
 The `LoadBalancer` section defines an implicit default load balancer class. This
 load balancer class is used if the service does not specify a dedicated
