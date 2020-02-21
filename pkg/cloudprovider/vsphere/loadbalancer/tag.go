@@ -21,8 +21,9 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/vmware/vsphere-automation-sdk-go/services/nsxt/model"
 	"k8s.io/apimachinery/pkg/types"
+
+	"github.com/vmware/vsphere-automation-sdk-go/services/nsxt/model"
 )
 
 // Tags is a map of NSXT-T tags indexed by the tag scope

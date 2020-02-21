@@ -23,10 +23,12 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/vmware/vsphere-automation-sdk-go/services/nsxt/model"
 	"gopkg.in/gcfg.v1"
+
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/klog"
+
+	"github.com/vmware/vsphere-automation-sdk-go/services/nsxt/model"
 )
 
 const (

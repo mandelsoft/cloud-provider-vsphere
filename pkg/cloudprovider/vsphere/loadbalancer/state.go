@@ -18,13 +18,15 @@ package loadbalancer
 
 import (
 	"fmt"
+	"reflect"
 
 	"github.com/pkg/errors"
-	"github.com/vmware/vsphere-automation-sdk-go/services/nsxt/model"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/klog"
+
+	"github.com/vmware/vsphere-automation-sdk-go/services/nsxt/model"
 
 	"k8s.io/cloud-provider-vsphere/pkg/cloudprovider/vsphere/loadbalancer/config"
 )
@@ -329,7 +331,7 @@ func (s *state) UpdatePoolMembers() error {
 
 func (s *state) updatePool(pool *model.LBPool, mapping Mapping, activeMonitorPaths []string) error {
 	newMembers, modified := s.updatedPoolMembers(pool.Members)
-	if modified || !stringsEquals(activeMonitorPaths, pool.ActiveMonitorPaths) {
+	if modified || !reflect.DeepEqual(activeMonitorPaths, pool.ActiveMonitorPaths) {
 		pool.Members = newMembers
 		pool.ActiveMonitorPaths = activeMonitorPaths
 		s.CtxInfof("updating LbPool %s for %s, #members=%d", *pool.Id, mapping, len(pool.Members))

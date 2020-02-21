@@ -19,9 +19,10 @@ package loadbalancer
 import (
 	"strings"
 
-	vapi_errors "github.com/vmware/vsphere-automation-sdk-go/lib/vapi/std/errors"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
+
+	vapi_errors "github.com/vmware/vsphere-automation-sdk-go/lib/vapi/std/errors"
 )
 
 func namespacedNameFromService(service *corev1.Service) types.NamespacedName {
@@ -31,18 +32,6 @@ func namespacedNameFromService(service *corev1.Service) types.NamespacedName {
 func parseNamespacedName(name string) types.NamespacedName {
 	parts := strings.Split(name, "/")
 	return types.NamespacedName{Namespace: parts[0], Name: parts[1]}
-}
-
-func stringsEquals(a []string, b []string) bool {
-	if len(a) != len(b) {
-		return false
-	}
-	for i := range a {
-		if a[i] != b[i] {
-			return false
-		}
-	}
-	return true
 }
 
 func collectNodeInternalAddresses(nodes []*corev1.Node) map[string]string {
@@ -63,11 +52,8 @@ func strptr(s string) *string {
 }
 
 func isNotFoundError(err error) bool {
-	if _, ok := err.(vapi_errors.NotFound); ok {
-		return true
-	}
-
-	return false
+	_, ok := err.(vapi_errors.NotFound)
+	return ok
 }
 
 func boolptr(b bool) *bool {

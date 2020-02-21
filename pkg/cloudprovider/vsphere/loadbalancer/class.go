@@ -20,8 +20,9 @@ import (
 	"fmt"
 
 	"github.com/pkg/errors"
-	"github.com/vmware/vsphere-automation-sdk-go/services/nsxt/model"
 	corev1 "k8s.io/api/core/v1"
+
+	"github.com/vmware/vsphere-automation-sdk-go/services/nsxt/model"
 
 	"k8s.io/cloud-provider-vsphere/pkg/cloudprovider/vsphere/loadbalancer/config"
 )

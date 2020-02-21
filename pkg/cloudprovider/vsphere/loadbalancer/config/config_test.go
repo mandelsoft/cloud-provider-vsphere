@@ -79,7 +79,7 @@ host = nsxt-server
 	assertEquals("NSX-T.host", config.NSXT.Host, "nsxt-server")
 }
 
-func TestReadConfig2(t *testing.T) {
+func TestReadConfigOnVMC(t *testing.T) {
 	contents := `
 [LoadBalancer]
 ipPoolID = 123-456
