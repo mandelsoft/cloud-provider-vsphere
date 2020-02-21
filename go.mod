@@ -20,15 +20,14 @@ require (
 	github.com/vmware/vsphere-automation-sdk-go/lib v0.1.1
 	github.com/vmware/vsphere-automation-sdk-go/runtime v0.1.1
 	github.com/vmware/vsphere-automation-sdk-go/services/nsxt v0.1.1
-	golang.org/x/lint v0.0.0-20200130185559-910be7a94367 // indirect
+	golang.org/x/crypto v0.0.0-20191011191535-87dc89f01550 // indirect
 	golang.org/x/net v0.0.0-20200114155413-6afb5195e5aa
 	golang.org/x/time v0.0.0-20190308202827-9d24e82272b4 // indirect
-	golang.org/x/tools v0.0.0-20200216192241-b320d3a0f5a2 // indirect
 	google.golang.org/grpc v1.22.1
+	gopkg.in/check.v1 v1.0.0-20180628173108-788fd7840127 // indirect
 	gopkg.in/gcfg.v1 v1.2.3
 	gopkg.in/square/go-jose.v2 v2.3.1 // indirect
 	gopkg.in/warnings.v0 v0.1.2 // indirect
-	honnef.co/go/tools v0.0.1-2019.2.2 // indirect
 	k8s.io/api v0.0.0
 	k8s.io/apimachinery v0.0.0
 	k8s.io/client-go v0.0.0
@@ -36,7 +35,6 @@ require (
 	k8s.io/component-base v0.0.0
 	k8s.io/klog v0.3.2
 	k8s.io/kube-openapi v0.0.0-20190401085232-94e1e7b7574c // indirect
-	k8s.io/kubelet v1.15.0
 	k8s.io/kubernetes v1.15.0
 	k8s.io/sample-controller v0.0.0-20190731144349-6f8905ae4ee5
 )
