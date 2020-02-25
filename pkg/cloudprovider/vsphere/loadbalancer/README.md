@@ -6,16 +6,6 @@ manager.*
 This package enriches the cloud provider interface by implementing the load
 balancing API of the cloud controller for an NSX-T environment.
 
-There are two different modes:
-
-- the *managed* mode manages the load balancer service. The NSX-T load balancer
-  service is only created if it is required. The load balancer service will 
-  also be deleted automatically if not needed anymore.
-  This saves resources if no kubernetes service of type `LoadBalancer` is
-  actually used.
-- the *unmanaged* mode is used if the configuration specifies a load balancer
-  service id. Here only the virtual servers are managed.
-
 The basic assumption is that all nodes are bound to a logical tier1 router.
 Here the load balancer service is attached to. Because there may be only
 one such service here, the configuration of the service must be done
@@ -43,17 +33,24 @@ service object is already (accidentally) gone.
 
 This load balancer controller supports the usage of multiple load balancer
 classes. Classes are preconfigured in the configuration file of the cloud
-controller manager. Every class may use another `IPPool` configured in NSX-T.
+controller manager. There may be an arbitrary set of such classes in a dedicated
+setup. Every class may use another `IPPool` configured in NSX-T.
 This supports the creation of load balancers in different visibility realms,
-for example an `*internet facing* or a *private* load balancer. The
-IPPools must be preconfigured in NSX-T. To select a dedicated loadbalancer
-class the kunernetes service object must be annotated with the annotation:
+for example an `*internet facing* or a *private* load balancer. The IPPools must
+be preconfigured in NSX-T.
+Additionally dedicated TCP and/or UDP profiles can be selected differing from
+the default ones.
+
+The class used to create a Kubernetes load balancer can then be selected on
+the level of the Kubernetes service object.
+To select a dedicated load balancer class different from the default one, the
+Kubernetes service object must be annotated with the annotation:
 
 ```yaml
-loadbalancer.vsphere.class: <class name>
+loadbalancer.vmware.io/class: <class name>
 ```
 
-If no such annotation is given the default class will be used. The gives
+If no such annotation is given the default class will be used. This gives
 the adminstrator of the cluster a chance to restrict the usage of the
 NSXT-T resources for cluster users. He can determine which elements should
 be used for a dedicated purpose. The cluster user just needs to know and select
@@ -76,10 +73,16 @@ ipPoolName = pool1
 lbServiceId = 4711
 size = SMALL
 tcpAppProfileName = default-tcp-lb-app-profile
+#tcpAppProfilePath = /infra/lb-app-profiles/default-tcp-lb-app-profile
 udpAppProfileName = default-udp-lb-app-profile
+#udpAppProfilePath = /infra/lb-app-profiles/default-udp-lb-app-profile
 
 [LoadBalancerClass "public"]
 ipPoolName = poolPublic
+#tcpAppProfileName = default-tcp-lb-app-profile
+#tcpAppProfilePath = /infra/lb-app-profiles/default-tcp-lb-app-profile
+#udpAppProfileName = default-udp-lb-app-profile
+#udpAppProfilePath = /infra/lb-app-profiles/default-udp-lb-app-profile
 
 [LoadBalancerClass "private"]
 ipPoolName = poolPrivate
@@ -97,10 +100,14 @@ host = nsxt-server
 #vmcAuthHost = authHost
 ```
 
+If the `LoadBalancer` section or at least one `LoadBalancerClass` section is
+given, the load balancer support of the vSphere cloud controller manager is
+enabled, otherwise it is disabled.
+
 Only one of `ipPoolId` or `ipPoolName` may be given.
 If the `lbServiceId` is given the controller is running in the *unmanaged*
 mode. Otherwise the `tier1GatewayPath` must be given. If both
-are given the configuration of the load balancer services is validated.
+are given the configuration of the load balancer services is invalid.
 
 The `tcpAppProfileName` and `udpAppProfileName` are used on creating
 virtual servers.
@@ -118,3 +125,21 @@ generated elements in NSX-T.
 
 The tag scope `owner` can be used to overwrite the owner name using the
 controller's app name by default.
+
+### Managing Modes
+
+There are two different modes the load balancer support can be used with:
+
+- the *unmanaged* mode is used if the configuration specifies a load balancer
+  service id. Here only the virtual servers are managed for the specified
+  loadbalancer service.
+  
+- the *managed* mode manages the load balancer service, also. Here the tier1
+  gateway must be specified used, which is used for the segments the cluster
+  nodes are connected to. The NSX-T load balancer service is only created if it
+  is required. This saves resources if no kubernetes service of type
+  `LoadBalancer` is actually used.
+
+Exactly one of the properties `lbServiceId` or `tier1GatewayPath` must be
+specified if the load balancer support for the vSphere cloud controller
+manager is enabled.

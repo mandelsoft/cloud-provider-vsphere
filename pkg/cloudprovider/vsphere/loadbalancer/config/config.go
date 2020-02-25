@@ -170,7 +170,7 @@ func (cfg *NsxtConfig) validateConfig() error {
 	return nil
 }
 
-// FromEnv initializes the provided configuratoin object with values
+// FromEnv initializes the provided configuration object with values
 // obtained from environment variables. If an environment variable is set
 // for a property that's already initialized, the environment variable's value
 // takes precedence.
@@ -200,11 +200,6 @@ func (cfg *NsxtConfig) FromEnv() error {
 	}
 	if v := os.Getenv("NSXT_CA_FILE"); v != "" {
 		cfg.CAFile = v
-	}
-
-	err := cfg.validateConfig()
-	if err != nil {
-		return err
 	}
 
 	return nil

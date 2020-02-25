@@ -161,7 +161,7 @@ func buildVSphereFromConfig(cfg *CPIConfig) (*VSphere, error) {
 		klog.Infof("NSX-T load balancer support disabled")
 	} else {
 		klog.Infof("NSX-T load balancer support enabled")
-		// redirect vapi logging to klog
+		// redirect vapi logging from the NSX-T GO SDK to klog
 		log.SetLogger(NewKlogBridge())
 	}
 	vs := VSphere{

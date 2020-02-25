@@ -21,8 +21,12 @@ import (
 	"k8s.io/klog"
 )
 
-type klogBridge struct {
-}
+// klogBridge is a connector for the vapi logger to klog
+// the github.com/vmware/vsphere-automation-sdk-go SDK used for the NSX-T
+// load balancer support logs a lot of stuff on its own logger defaulted
+// to standard output. This bridge redirects the SDK log to the
+// logging environment used by the controller manager (klog).
+type klogBridge struct{}
 
 // NewKlogBridge provides a vapi logger with klog backend
 func NewKlogBridge() log.Logger {
@@ -31,7 +35,6 @@ func NewKlogBridge() log.Logger {
 
 func (d klogBridge) Error(args ...interface{}) {
 	klog.Error(args...)
-
 }
 
 func (d klogBridge) Errorf(a string, args ...interface{}) {
