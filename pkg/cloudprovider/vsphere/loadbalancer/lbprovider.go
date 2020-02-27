@@ -46,9 +46,8 @@ type lbProvider struct {
 	keyLock *keyLock
 }
 
-// ClusterName contains the cluster name injected from main
-// TODO cluster name needed for reorg and is currently injected from main
-var ClusterName string
+// ClusterID contains the cluster-id flag injected from main, needed for cleanup
+var ClusterID string
 
 var _ LBProvider = &lbProvider{}
 
@@ -77,8 +76,10 @@ func NewLBProvider(cfg *config.LBConfig) (LBProvider, error) {
 	}, nil
 }
 
-func (p *lbProvider) Initialize(client clientset.Interface, stop <-chan struct{}) {
-	go p.reorg(client.CoreV1().Services(""), stop)
+func (p *lbProvider) Initialize(clusterName string, client clientset.Interface, stop <-chan struct{}) {
+	if clusterName != "" {
+		go p.cleanup(clusterName, client.CoreV1().Services(""), stop)
+	}
 }
 
 // GetLoadBalancer returns the LoadBalancerStatus
@@ -108,7 +109,7 @@ func newLoadBalancerStatus(ipAddress *string) *corev1.LoadBalancerStatus {
 // GetLoadBalancerName returns the name of the load balancer. Implementations must treat the
 // *corev1.Service parameter as read-only and not modify it.
 func (p *lbProvider) GetLoadBalancerName(_ context.Context, clusterName string, service *corev1.Service) string {
-	return clusterName + ":" + service.Namespace + ":" + service.Name
+	return *displayNameObject(clusterName, namespacedNameFromService(service))
 }
 
 // EnsureLoadBalancer creates a new load balancer 'name', or updates the existing one. Returns the status of the balancer
@@ -175,8 +176,8 @@ func (p *lbProvider) UpdateLoadBalancer(_ context.Context, clusterName string, s
 // Implementations must treat the *corev1.Service parameter as read-only and not modify it.
 // Parameter 'clusterName' is the name of the cluster as presented to kube-controller-manager
 func (p *lbProvider) EnsureLoadBalancerDeleted(ctx context.Context, clusterName string, service *corev1.Service) error {
-	emptyService := *service
+	emptyService := service.DeepCopy()
 	emptyService.Spec.Ports = nil
-	_, err := p.EnsureLoadBalancer(ctx, clusterName, &emptyService, nil)
+	_, err := p.EnsureLoadBalancer(ctx, clusterName, emptyService, nil)
 	return err
 }

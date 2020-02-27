@@ -30,7 +30,7 @@ import (
 
 const maxPeriod = 30 * time.Minute
 
-// reorg is used to cleanup obsolete and potentially forgotten objects
+// cleanup is used to cleanup obsolete and potentially forgotten objects
 // created by the loadbalancer controller in NSX-T. This should not
 // happen, but if users play with finalizers or some error condition
 // appears in the controller there might be orphaned objects in the
@@ -44,7 +44,7 @@ const maxPeriod = 30 * time.Minute
 // to identify all elements originally created by this controller. By
 // comparing this set with the actually required objects it is possible
 // to identify those that are orphaned and safely delete them.
-func (p *lbProvider) reorg(client clientcorev1.ServiceInterface, stop <-chan struct{}) {
+func (p *lbProvider) cleanup(clusterName string, client clientcorev1.ServiceInterface, stop <-chan struct{}) {
 	timer := time.NewTimer(1 * time.Second)
 	lastErrNext := 0 * time.Second
 	for {
@@ -53,12 +53,12 @@ func (p *lbProvider) reorg(client clientcorev1.ServiceInterface, stop <-chan str
 			return
 		case <-timer.C:
 			var next time.Duration
-			err := p.doReorgStep(client)
+			err := p.doCleanupStep(clusterName, client)
 			if err == nil {
 				next = maxPeriod
 				lastErrNext = 0
 			} else {
-				klog.Warningf("reorg failed with %s", err)
+				klog.Warningf("cleanup failed with %s", err)
 				if lastErrNext == 0 {
 					lastErrNext = 500 * time.Millisecond
 				} else {
@@ -74,8 +74,8 @@ func (p *lbProvider) reorg(client clientcorev1.ServiceInterface, stop <-chan str
 	}
 }
 
-func (p *lbProvider) doReorgStep(client clientcorev1.ServiceInterface) error {
-	klog.Infof("starting reorg...")
+func (p *lbProvider) doCleanupStep(clusterName string, client clientcorev1.ServiceInterface) error {
+	klog.Infof("starting cleanup...")
 	list, err := client.List(metav1.ListOptions{})
 	if err != nil {
 		return err
@@ -88,10 +88,10 @@ func (p *lbProvider) doReorgStep(client clientcorev1.ServiceInterface) error {
 		}
 	}
 
-	return p.ReorgServices(services)
+	return p.CleanupServices(clusterName, services)
 }
 
-func (p *lbProvider) ReorgServices(services map[types.NamespacedName]corev1.Service) error {
+func (p *lbProvider) CleanupServices(clusterName string, validServices map[types.NamespacedName]corev1.Service) error {
 	ipPoolIds := sets.NewString()
 	for _, name := range p.classes.GetClassNames() {
 		class := p.classes.GetClass(name)
@@ -99,7 +99,7 @@ func (p *lbProvider) ReorgServices(services map[types.NamespacedName]corev1.Serv
 	}
 
 	lbs := map[types.NamespacedName]struct{}{}
-	servers, err := p.access.ListVirtualServers(ClusterName)
+	servers, err := p.access.ListVirtualServers(ClusterID)
 	if err != nil {
 		return err
 	}
@@ -113,7 +113,7 @@ func (p *lbProvider) ReorgServices(services map[types.NamespacedName]corev1.Serv
 	}
 	ipPoolIds.Delete("")
 
-	pools, err := p.access.ListPools(ClusterName)
+	pools, err := p.access.ListPools(clusterName)
 	if err != nil {
 		return err
 	}
@@ -124,7 +124,7 @@ func (p *lbProvider) ReorgServices(services map[types.NamespacedName]corev1.Serv
 		}
 	}
 
-	monitors, err := p.access.ListTCPMonitorProfiles(ClusterName)
+	monitors, err := p.access.ListTCPMonitorProfiles(clusterName)
 	if err != nil {
 		return err
 	}
@@ -136,7 +136,7 @@ func (p *lbProvider) ReorgServices(services map[types.NamespacedName]corev1.Serv
 	}
 
 	for ipPoolID := range ipPoolIds {
-		ipAddressAllocs, err := p.access.ListExternalIPAddresses(ipPoolID, ClusterName)
+		ipAddressAllocs, err := p.access.ListExternalIPAddresses(ipPoolID, clusterName)
 		if err != nil {
 			return err
 		}
@@ -148,9 +148,9 @@ func (p *lbProvider) ReorgServices(services map[types.NamespacedName]corev1.Serv
 		}
 	}
 
-	klog.Infof("reorg: %d existing services, artefacts for %d services", len(services), len(lbs))
+	klog.Infof("cleanup: %d existing services, artefacts for %d services", len(validServices), len(lbs))
 	for lb := range lbs {
-		if svc, ok := services[lb]; !ok || svc.Spec.Type != corev1.ServiceTypeLoadBalancer {
+		if svc, ok := validServices[lb]; !ok || svc.Spec.Type != corev1.ServiceTypeLoadBalancer {
 			service := &corev1.Service{
 				ObjectMeta: metav1.ObjectMeta{
 					Namespace: lb.Namespace,
@@ -158,7 +158,7 @@ func (p *lbProvider) ReorgServices(services map[types.NamespacedName]corev1.Serv
 				},
 			}
 			klog.Infof("deleting artefacts for non-existing service %s/%s", lb.Namespace, lb.Name)
-			err = p.EnsureLoadBalancerDeleted(context.TODO(), ClusterName, service)
+			err = p.EnsureLoadBalancerDeleted(context.TODO(), clusterName, service)
 			if err != nil {
 				return err
 			}

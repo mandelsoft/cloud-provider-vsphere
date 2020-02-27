@@ -31,8 +31,6 @@ import (
 	"k8s.io/cloud-provider-vsphere/pkg/cloudprovider/vsphere/loadbalancer/config"
 )
 
-var verboseLevel = klog.Level(2)
-
 type state struct {
 	*lbService
 	klog.Verbose
@@ -55,7 +53,7 @@ func newState(lbService *lbService, clusterName string, service *corev1.Service,
 		service:     service,
 		nodes:       nodes,
 		objectName:  namespacedNameFromService(service),
-		Verbose:     klog.V(verboseLevel),
+		Verbose:     klog.V(klog.Level(2)),
 	}
 }
 

@@ -85,7 +85,7 @@ func (a *access) FindIPPoolByName(poolName string) (string, error) {
 func (a *access) CreateLoadBalancerService(clusterName string) (*model.LBService, error) {
 	lbService := model.LBService{
 		Description:      strptr(fmt.Sprintf("virtual server pool for cluster %s created by %s", clusterName, AppName)),
-		DisplayName:      strptr(fmt.Sprintf("cluster:%s", clusterName)),
+		DisplayName:      displayName(clusterName),
 		Tags:             a.standardTags.Append(clusterTag(clusterName)).Normalize(),
 		Size:             strptr(a.config.LoadBalancer.Size),
 		Enabled:          boolptr(true),
@@ -99,25 +99,26 @@ func (a *access) CreateLoadBalancerService(clusterName string) (*model.LBService
 }
 
 func (a *access) FindLoadBalancerService(clusterName string, id string) (*model.LBService, error) {
-	if id != "" {
-		result, err := a.broker.ReadLoadBalancerService(id)
-		if err != nil {
-			return nil, err
-		}
-		if a.config.LoadBalancer.Tier1GatewayPath != "" && (result.ConnectivityPath == nil || *result.ConnectivityPath != a.config.LoadBalancer.Tier1GatewayPath) {
-			connectivityPath := "nil"
-			if result.ConnectivityPath != nil {
-				connectivityPath = *result.ConnectivityPath
-			}
-			return nil, fmt.Errorf("load balancer service %q is configured for router %q not %q",
-				*result.Id,
-				connectivityPath,
-				a.config.LoadBalancer.Tier1GatewayPath,
-			)
-		}
-		return &result, nil
+	if id == "" {
+		return a.findLoadBalancerService(a.ownerTag, clusterTag(clusterName))
 	}
-	return a.findLoadBalancerService(a.ownerTag, clusterTag(clusterName))
+
+	result, err := a.broker.ReadLoadBalancerService(id)
+	if err != nil {
+		return nil, err
+	}
+	if a.config.LoadBalancer.Tier1GatewayPath != "" && (result.ConnectivityPath == nil || *result.ConnectivityPath != a.config.LoadBalancer.Tier1GatewayPath) {
+		connectivityPath := "nil"
+		if result.ConnectivityPath != nil {
+			connectivityPath = *result.ConnectivityPath
+		}
+		return nil, fmt.Errorf("load balancer service %q is configured for router %q not %q",
+			*result.Id,
+			connectivityPath,
+			a.config.LoadBalancer.Tier1GatewayPath,
+		)
+	}
+	return &result, nil
 }
 
 func (a *access) findLoadBalancerService(tags ...model.Tag) (*model.LBService, error) {
@@ -212,7 +213,7 @@ func (a *access) CreateVirtualServer(clusterName string, objectName types.Namesp
 	virtualServer := model.LBVirtualServer{
 		Description: strptr(fmt.Sprintf("virtual server for cluster %s, service %s created by %s",
 			clusterName, objectName, AppName)),
-		DisplayName:            strptr(fmt.Sprintf("cluster:%s:%s", clusterName, objectName)),
+		DisplayName:            displayNameObject(clusterName, objectName),
 		Tags:                   a.standardTags.Append(allTags...).Normalize(),
 		DefaultPoolMemberPorts: []string{fmt.Sprintf("%d", mapping.NodePort)},
 		Enabled:                boolptr(true),
@@ -278,7 +279,7 @@ func (a *access) CreatePool(clusterName string, objectName types.NamespacedName,
 	}
 	pool := model.LBPool{
 		Description:        strptr(fmt.Sprintf("pool for cluster %s, service %s created by %s", clusterName, objectName, AppName)),
-		DisplayName:        strptr(fmt.Sprintf("cluster:%s:%s", clusterName, objectName)),
+		DisplayName:        displayNameObject(clusterName, objectName),
 		Tags:               a.standardTags.Append(clusterTag(clusterName), serviceTag(objectName), portTag(mapping)).Normalize(),
 		SnatTranslation:    snatTranslation,
 		Members:            members,
@@ -359,7 +360,7 @@ func (a *access) CreateTCPMonitorProfile(clusterName string, objectName types.Na
 	profile := model.LBTcpMonitorProfile{
 		Description: strptr(fmt.Sprintf("tcp monitor for cluster %s, service %s, port %d created by %s",
 			clusterName, objectName, mapping.NodePort, AppName)),
-		DisplayName: strptr(fmt.Sprintf("cluster:%s:%s:%d", clusterName, objectName, mapping.NodePort)),
+		DisplayName: displayNameMapping(clusterName, objectName, mapping),
 		Tags:        a.standardTags.Append(clusterTag(clusterName), serviceTag(objectName), portTag(mapping)).Normalize(),
 		MonitorPort: int64ptr(int64(mapping.NodePort)),
 	}
@@ -491,4 +492,16 @@ func (a *access) ReleaseExternalIPAddress(ipPoolID string, id string) error {
 		return errors.Wrapf(err, "releasing external IP address allocation id=%s failed", id)
 	}
 	return nil
+}
+
+func displayName(clusterName string) *string {
+	return strptr(fmt.Sprintf("cluster:%s", clusterName))
+}
+
+func displayNameObject(clusterName string, objectName types.NamespacedName) *string {
+	return strptr(fmt.Sprintf("cluster:%s:%s", clusterName, objectName))
+}
+
+func displayNameMapping(clusterName string, objectName types.NamespacedName, mapping Mapping) *string {
+	return strptr(fmt.Sprintf("cluster:%s:%s:%d", clusterName, objectName, mapping.NodePort))
 }

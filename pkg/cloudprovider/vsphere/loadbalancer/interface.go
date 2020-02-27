@@ -30,8 +30,8 @@ import (
 // initialization function
 type LBProvider interface {
 	cloudprovider.LoadBalancer
-	Initialize(client clientset.Interface, stop <-chan struct{})
-	ReorgServices(services map[types.NamespacedName]corev1.Service) error
+	Initialize(clusterName string, client clientset.Interface, stop <-chan struct{})
+	CleanupServices(clusterName string, services map[types.NamespacedName]corev1.Service) error
 }
 
 // NSXTAccess provides methods for dealing with NSX-T objects

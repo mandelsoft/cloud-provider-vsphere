@@ -6,6 +6,10 @@ manager.*
 This package enriches the cloud provider interface by implementing the load
 balancing API of the cloud controller for an NSX-T environment.
 
+**To activate the load balancer support, the environment variable `ENABLE_ALPHA_NSXT_LB` must be
+set**. Additionally the command line flag `--cluster-id` have to be set to enable
+periodical cleanup.
+
 The basic assumption is that all nodes are bound to a logical tier1 router.
 Here the load balancer service is attached to. Because there may be only
 one such service here, the configuration of the service must be done
@@ -52,7 +56,7 @@ loadbalancer.vmware.io/class: <class name>
 
 If no such annotation is given the default class will be used. This gives
 the adminstrator of the cluster a chance to restrict the usage of the
-NSXT-T resources for cluster users. He can determine which elements should
+NSXT-T resources for cluster users. They can determine which elements should
 be used for a dedicated purpose. The cluster user just needs to know and select
 the purpose by annotating the appropriate load balancer class.
 
@@ -68,21 +72,13 @@ configuration file:
 ```ini
 [LoadBalancer]
 ipPoolName = pool1
-#ipPoolId = 0815
-#tier1GatewayPath = /infra/tier-1s/12345
 lbServiceId = 4711
 size = SMALL
 tcpAppProfileName = default-tcp-lb-app-profile
-#tcpAppProfilePath = /infra/lb-app-profiles/default-tcp-lb-app-profile
 udpAppProfileName = default-udp-lb-app-profile
-#udpAppProfilePath = /infra/lb-app-profiles/default-udp-lb-app-profile
 
 [LoadBalancerClass "public"]
 ipPoolName = poolPublic
-#tcpAppProfileName = default-tcp-lb-app-profile
-#tcpAppProfilePath = /infra/lb-app-profiles/default-tcp-lb-app-profile
-#udpAppProfileName = default-udp-lb-app-profile
-#udpAppProfilePath = /infra/lb-app-profiles/default-udp-lb-app-profile
 
 [LoadBalancerClass "private"]
 ipPoolName = poolPrivate
@@ -95,9 +91,7 @@ tag2 = value2
 user = admin
 password = secret
 host = nsxt-server
-#insecure-flag = true
-#vmcAccessToken = token123
-#vmcAuthHost = authHost
+insecure-flag = false
 ```
 
 If the `LoadBalancer` section or at least one `LoadBalancerClass` section is
@@ -105,12 +99,12 @@ given, the load balancer support of the vSphere cloud controller manager is
 enabled, otherwise it is disabled.
 
 Only one of `ipPoolId` or `ipPoolName` may be given.
-If the `lbServiceId` is given the controller is running in the *unmanaged*
-mode. Otherwise the `tier1GatewayPath` must be given. If both
-are given the configuration of the load balancer services is invalid.
+As the `lbServiceId` is given the controller is running in the *unmanaged*
+mode.
 
-The `tcpAppProfileName` and `udpAppProfileName` are used on creating
-virtual servers.
+The ``tcpAppProfileName`` and `udpAppProfileName` are used on creating
+virtual servers. Alternatively `tcpAppProfilePath` and `udpAppProfilePath`
+can be specified.
 
 The `LoadBalancer` section defines an implicit default load balancer class. This
 load balancer class is used if the service does not specify a dedicated
@@ -125,6 +119,20 @@ generated elements in NSX-T.
 
 The tag scope `owner` can be used to overwrite the owner name using the
 controller's app name by default.
+
+If the load balancer service should be managed by the controller (*managed* mode),
+the `tier1GatewayPath` must be set (`lbServiceId` must not be set in this case):
+
+```ini
+[LoadBalancer]
+ipPoolName = pool1
+tier1GatewayPath = /infra/tier-1s/12345
+size = SMALL
+tcpAppProfileName = default-tcp-lb-app-profile
+udpAppProfileName = default-udp-lb-app-profile
+
+...
+```
 
 ### Managing Modes
 

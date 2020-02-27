@@ -18,6 +18,7 @@ package vsphere
 
 import (
 	"io"
+	"os"
 	"runtime"
 
 	v1 "k8s.io/api/core/v1"
@@ -91,15 +92,24 @@ func (vs *VSphere) Initialize(clientBuilder cloudprovider.ControllerClientBuilde
 	} else {
 		klog.Errorf("Kubernetes Client Init Failed: %v", err)
 	}
-	if vs.loadbalancer != nil {
-		vs.loadbalancer.Initialize(client, stop)
+	if vs.isLoadBalancerSupportEnabled() {
+		klog.Info("initializing load balancer support")
+		if loadbalancer.ClusterID == "" {
+			klog.Warning("Missing cluster id, no periodical cleanup possible")
+		}
+		vs.loadbalancer.Initialize(loadbalancer.ClusterID, client, stop)
 	}
+}
+
+func (vs *VSphere) isLoadBalancerSupportEnabled() bool {
+	_, ok := os.LookupEnv("ENABLE_ALPHA_NSXT_LB")
+	return ok && vs.loadbalancer != nil
 }
 
 // LoadBalancer returns a balancer interface. Also returns true if the
 // interface is supported, false otherwise.
 func (vs *VSphere) LoadBalancer() (cloudprovider.LoadBalancer, bool) {
-	if vs.loadbalancer != nil {
+	if vs.isLoadBalancerSupportEnabled() {
 		return vs.loadbalancer, true
 	}
 	klog.Warning("The vSphere cloud provider does not support load balancers")
