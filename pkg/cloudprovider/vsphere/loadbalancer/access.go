@@ -58,7 +58,7 @@ func NewNSXTAccess(broker NsxtBroker, config *config.LBConfig) (NSXTAccess, erro
 	standardTags := Tags{
 		ScopeOwner: newTag(ScopeOwner, AppName),
 	}
-	for k, v := range config.AdditionalTags {
+	for k, v := range config.LoadBalancer.AdditionalTags {
 		standardTags[k] = newTag(k, v)
 	}
 	return &access{

@@ -76,16 +76,13 @@ lbServiceId = 4711
 size = SMALL
 tcpAppProfileName = default-tcp-lb-app-profile
 udpAppProfileName = default-udp-lb-app-profile
+tags = {\"tag1\": \"value1\", \"tag2\": \"value 2\"}
 
 [LoadBalancerClass "public"]
 ipPoolName = poolPublic
 
 [LoadBalancerClass "private"]
 ipPoolName = poolPrivate
-
-[Tags]
-tag1 = value1
-tag2 = value2
 
 [NSX-T]
 user = admin
@@ -106,6 +103,11 @@ The ``tcpAppProfileName`` and `udpAppProfileName` are used on creating
 virtual servers. Alternatively `tcpAppProfilePath` and `udpAppProfilePath`
 can be specified.
 
+The `tags` field allows to specify additional tags which will be added
+to all generated elements in NSX-T. The value must be a JSON object containing
+the tags and string values. The tag scope `owner` can be used to overwrite the owner name using the
+controller's app name by default.
+
 The `LoadBalancer` section defines an implicit default load balancer class. This
 load balancer class is used if the service does not specify a dedicated
 load balancer class via annotation. Its values are also used as defaults
@@ -113,12 +115,6 @@ for all explicitly specified load balancer classes.
 
 Additionaly classes may be configured by the labeled `LoadBalancerClass`
 sections.
-
-The tags configured in the `Tags` section will be added as tags to all
-generated elements in NSX-T.
-
-The tag scope `owner` can be used to overwrite the owner name using the
-controller's app name by default.
 
 If the load balancer service should be managed by the controller (*managed* mode),
 the `tier1GatewayPath` must be set (`lbServiceId` must not be set in this case):

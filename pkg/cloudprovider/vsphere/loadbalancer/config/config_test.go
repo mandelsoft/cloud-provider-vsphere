@@ -30,6 +30,7 @@ lbServiceId = 4711
 tier1GatewayPath = 1234
 tcpAppProfileName = default-tcp-lb-app-profile
 udpAppProfileName = default-udp-lb-app-profile
+tags = {\"tag1\": \"value1\", \"tag2\": \"value 2\"}
 
 [LoadBalancerClass "public"]
 ipPoolName = poolPublic
@@ -38,10 +39,6 @@ ipPoolName = poolPublic
 ipPoolName = poolPrivate
 tcpAppProfileName = tcp2
 udpAppProfileName = udp2
-
-[Tags]
-tag1 = value1
-tag2 = value2
 
 [NSX-T]
 user = admin
@@ -71,8 +68,8 @@ host = nsxt-server
 	assertEquals("LoadBalancerClass.public.ipPoolName", config.LoadBalancerClasses["public"].IPPoolName, "poolPublic")
 	assertEquals("LoadBalancerClass.private.tcpAppProfileName", config.LoadBalancerClasses["private"].TCPAppProfileName, "tcp2")
 	assertEquals("LoadBalancerClass.private.udpAppProfileName", config.LoadBalancerClasses["private"].UDPAppProfileName, "udp2")
-	if len(config.AdditionalTags) != 2 || config.AdditionalTags["tag1"] != "value1" || config.AdditionalTags["tag2"] != "value2" {
-		t.Errorf("unexpected additionalTags %v", config.AdditionalTags)
+	if len(config.LoadBalancer.AdditionalTags) != 2 || config.LoadBalancer.AdditionalTags["tag1"] != "value1" || config.LoadBalancer.AdditionalTags["tag2"] != "value 2" {
+		t.Errorf("unexpected additionalTags %v", config.LoadBalancer.AdditionalTags)
 	}
 	assertEquals("NSX-T.user", config.NSXT.User, "admin")
 	assertEquals("NSX-T.password", config.NSXT.Password, "secret")

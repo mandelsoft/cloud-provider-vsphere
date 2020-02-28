@@ -17,6 +17,7 @@
 package config
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"os"
@@ -50,7 +51,6 @@ type LBConfig struct {
 	LoadBalancer        LoadBalancerConfig                  `gcfg:"LoadBalancer"`
 	LoadBalancerClasses map[string]*LoadBalancerClassConfig `gcfg:"LoadBalancerClass"`
 	NSXT                NsxtConfig                          `gcfg:"NSX-T"`
-	AdditionalTags      map[string]string                   `gcfg:"Tags"`
 }
 
 // LoadBalancerConfig contains the configuration for the load balancer itself
@@ -59,6 +59,8 @@ type LoadBalancerConfig struct {
 	Size             string `gcfg:"size"`
 	LBServiceID      string `gcfg:"lbServiceId"`
 	Tier1GatewayPath string `gcfg:"tier1GatewayPath"`
+	RawTags          string `gcfg:"tags"`
+	AdditionalTags   map[string]string
 }
 
 // LoadBalancerClassConfig contains the configuration for a load balancer class
@@ -231,6 +233,13 @@ func (cfg *LBConfig) CompleteAndValidate() error {
 		return nil
 	}
 
+	cfg.LoadBalancer.AdditionalTags = map[string]string{}
+	if cfg.LoadBalancer.RawTags != "" {
+		err := json.Unmarshal([]byte(cfg.LoadBalancer.RawTags), &cfg.LoadBalancer.AdditionalTags)
+		if err != nil {
+			return fmt.Errorf("unmarshalling load balancer tags failed: %s", err)
+		}
+	}
 	if cfg.LoadBalancerClasses == nil {
 		cfg.LoadBalancerClasses = map[string]*LoadBalancerClassConfig{}
 	}
