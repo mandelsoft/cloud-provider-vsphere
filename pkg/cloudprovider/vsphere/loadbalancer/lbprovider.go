@@ -46,8 +46,8 @@ type lbProvider struct {
 	keyLock *keyLock
 }
 
-// ClusterID contains the cluster-id flag injected from main, needed for cleanup
-var ClusterID string
+// ClusterName contains the cluster-name flag injected from main, needed for cleanup
+var ClusterName string
 
 var _ LBProvider = &lbProvider{}
 

@@ -94,10 +94,10 @@ func (vs *VSphere) Initialize(clientBuilder cloudprovider.ControllerClientBuilde
 	}
 	if vs.isLoadBalancerSupportEnabled() {
 		klog.Info("initializing load balancer support")
-		if loadbalancer.ClusterID == "" {
+		if loadbalancer.ClusterName == "" {
 			klog.Warning("Missing cluster id, no periodical cleanup possible")
 		}
-		vs.loadbalancer.Initialize(loadbalancer.ClusterID, client, stop)
+		vs.loadbalancer.Initialize(loadbalancer.ClusterName, client, stop)
 	}
 }
 

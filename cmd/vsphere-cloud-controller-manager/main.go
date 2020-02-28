@@ -45,8 +45,6 @@ const AppName string = "vsphere-cloud-controller-manager"
 
 var version string
 
-var clusterID = pflag.String("cluster-id", "", "cluster id (used for tagging load balancer objects)")
-
 func main() {
 	loadbalancer.Version = version
 	loadbalancer.AppName = AppName
@@ -76,8 +74,11 @@ func main() {
 	})
 
 	var versionFlag *pflag.Value
+	var clusterNameFlag *pflag.Value
 	pflag.CommandLine.VisitAll(func(flag *pflag.Flag) {
 		switch flag.Name {
+		case "cluster-name":
+			clusterNameFlag = &flag.Value
 		case "version":
 			versionFlag = &flag.Value
 		}
@@ -90,8 +91,8 @@ func main() {
 			fmt.Printf("%s %s\n", AppName, version)
 			os.Exit(0)
 		}
-		if *clusterID != "" {
-			loadbalancer.ClusterID = *clusterID
+		if clusterNameFlag != nil {
+			loadbalancer.ClusterName = (*clusterNameFlag).String()
 		}
 		innerRun(cmd, args)
 	}

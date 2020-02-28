@@ -7,7 +7,7 @@ This package enriches the cloud provider interface by implementing the load
 balancing API of the cloud controller for an NSX-T environment.
 
 **To activate the load balancer support, the environment variable `ENABLE_ALPHA_NSXT_LB` must be
-set**. Additionally the command line flag `--cluster-id` have to be set to enable
+set**. Additionally the command line flag `--cluster-name` have to be set to enable
 periodical cleanup.
 
 The basic assumption is that all nodes are bound to a logical tier1 router.
@@ -153,8 +153,8 @@ udpAppProfileName = default-udp-lb-app-profile
 The load balancer configuration uses the sections `[NSX-T]`, `[LoadBalancer]` and
 the subsections `[LoadBalancerClass "<name>"]`
 
-
 #### Section NSX-T
+
 The section NSX-T specifies the access to the NSX-T environment used to
 provision the load balancers.
 The following attributes are supported:
@@ -171,8 +171,8 @@ The following attributes are supported:
 |`client-auth-cert-file`|client certificate for the certificate based authorization|
 |`client-auth-key-file`|private key for the client certificate|
 
-
 #### Section LoadBalancer
+
 The load balancer section contains general settings and default settings for
 the load balancer classes. The following attributes are supported:
 
@@ -181,13 +181,13 @@ the load balancer classes. The following attributes are supported:
 |`size`|Size of load balancer service (`SMALL`,`MEDIUM`,`LARGE`,`XLARGE`)|
 |`lbServiceId`|service id of the load balancer service to use (for unmanaged mode)|
 |`tier1GatewayPath`|policy path for the tier1 gateway|
-|`tags`|JSON map with name/value pairs used for creating additional tags for the generated NSX-T elements| 
+|`tags`|JSON map with name/value pairs used for creating additional tags for the generated NSX-T elements|
 
 If the tag key `owner` is given it overwrites the default owner
 (application name of the cloud controller manager). The owner is used together
-with the cluster id (specified with the option `--cluster-id`) to identify
+with the cluster name (specified with the option `--cluster-name`) to identify
 dangling elements in the infrastructure originating from this controller manager.
-If the cluster id option is not given, there will be no automated cleanup of
+If the cluster name option is not given, there will be no automated cleanup of
 dangling elements.
 
 Additionally the attributes of a `LoadBalancerClass` can be specified here. These
