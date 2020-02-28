@@ -17,6 +17,7 @@ limitations under the License.
 package vsphere
 
 import (
+	"fmt"
 	"io"
 	"os"
 	"runtime"
@@ -80,7 +81,7 @@ func (vs *VSphere) Initialize(clientBuilder cloudprovider.ControllerClientBuilde
 
 		vs.informMgr.Listen()
 
-		//if running secrets, init them
+		// if running secrets, init them
 		connMgr.InitializeSecretLister()
 
 		if !vs.cfg.Global.APIDisable {
@@ -170,6 +171,10 @@ func buildVSphereFromConfig(cfg *CPIConfig) (*VSphere, error) {
 		if lb != nil {
 			klog.Infof("To enable NSX-T load balancer support you need to set the env variable ENABLE_ALPHA_NSXT_LB")
 			lb = nil
+		}
+	} else {
+		if lb == nil {
+			return nil, fmt.Errorf("To enable NSX-T load balancer support you need to configure section LoadBalancer")
 		}
 	}
 	if lb == nil {

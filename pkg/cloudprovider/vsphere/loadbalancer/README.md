@@ -6,15 +6,17 @@ manager.*
 This package enriches the cloud provider interface by implementing the load
 balancing API of the cloud controller for an NSX-T environment.
 
-**To activate the load balancer support, the environment variable `ENABLE_ALPHA_NSXT_LB` must be
-set**. Additionally the command line flag `--cluster-name` have to be set to enable
-periodical cleanup.
+**To activate the load balancer support, the environment variable
+`ENABLE_ALPHA_NSXT_LB` must be set**.
+
+If this feature gate is enabled the load balancer service must be configured
+properly, also.
 
 The basic assumption is that all nodes are bound to a logical tier1 router.
 Here the load balancer service is attached to. Because there may be only
 one such service here, the configuration of the service must be done
 during the creation of the service. Here the selection of the (t-shirt) size is
-required (S, M or L)  
+required (S, M, L or XL).
 For every service port a dedicated virtual server is managed which is
 connected to this load balancer service.
 
