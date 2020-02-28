@@ -143,7 +143,7 @@ There are two different modes the load balancer support can be used with:
   loadbalancer service.
   
 - the *managed* mode manages the load balancer service, also. Here the tier1
-  gateway must be specified used, which is used for the segments the cluster
+  gateway must be specified, which is used for the segments the cluster
   nodes are connected to. The NSX-T load balancer service is only created if it
   is required. This saves resources if no kubernetes service of type
   `LoadBalancer` is actually used.

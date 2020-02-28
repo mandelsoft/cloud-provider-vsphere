@@ -102,8 +102,7 @@ func (vs *VSphere) Initialize(clientBuilder cloudprovider.ControllerClientBuilde
 }
 
 func (vs *VSphere) isLoadBalancerSupportEnabled() bool {
-	_, ok := os.LookupEnv("ENABLE_ALPHA_NSXT_LB")
-	return ok && vs.loadbalancer != nil
+	return vs.loadbalancer != nil
 }
 
 // LoadBalancer returns a balancer interface. Also returns true if the
@@ -166,6 +165,12 @@ func buildVSphereFromConfig(cfg *CPIConfig) (*VSphere, error) {
 	lb, err := loadbalancer.NewLBProvider(&cfg.LBConfig)
 	if err != nil {
 		return nil, err
+	}
+	if _, ok := os.LookupEnv("ENABLE_ALPHA_NSXT_LB"); !ok {
+		if lb != nil {
+			klog.Infof("To enable NSX-T load balancer support you need to set the env variable ENABLE_ALPHA_NSXT_LB")
+			lb = nil
+		}
 	}
 	if lb == nil {
 		klog.Infof("NSX-T load balancer support disabled")
